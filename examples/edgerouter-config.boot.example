@@ -1,0 +1,129 @@
+# Example EdgeRouter Configuration
+# WireGuard Failsafe Load Balancer Setup
+#
+# Replace placeholders:
+#   <VPS_PUBLIC_KEY> - VPS WireGuard public key
+#   <EDGEROUTER_PRIVATE_KEY> - EdgeRouter WireGuard private key
+#   <VPS_PUBLIC_IP> - VPS static public IP address
+#   <PSK> - Preshared key (optional but recommended)
+
+interfaces {
+    wireguard wg0 {
+        address <EDGEROUTER_TUNNEL_IP>/24
+        description "4G Failsafe Tunnel to VPS"
+        disable
+        # Replace <EDGEROUTER_TUNNEL_IP> with your EdgeRouter tunnel IP (e.g., 10.11.0.102)
+        firewall {
+            in {
+                name WG_IN
+            }
+            local {
+                name WG_LOCAL
+            }
+        }
+        listen-port 51820
+        mtu 1420
+        peer <VPS_PUBLIC_KEY> {
+            allowed-ips 0.0.0.0/0
+            endpoint <VPS_PUBLIC_IP>:51820
+            persistent-keepalive 25
+            # Optional: preshared-key <PSK>
+        }
+        private-key <EDGEROUTER_PRIVATE_KEY>
+        route-allowed-ips false
+    }
+    ethernet eth0 {
+        address <PRIMARY_WAN_IP>/24
+        description "Primary WAN"
+        # Replace <PRIMARY_WAN_IP> with your primary WAN IP (e.g., 192.168.1.10)
+        # ... other eth0 configuration ...
+    }
+    ethernet eth1 {
+        address <BACKUP_WAN_IP>/24
+        description "Backup WAN (4G)"
+        # Replace <BACKUP_WAN_IP> with your backup WAN IP (e.g., 192.168.2.10)
+        # ... other eth1 configuration ...
+    }
+    switch switch0 {
+        address <LAN_IP>/24
+        description "LAN"
+        # Replace <LAN_IP> with your LAN IP (e.g., 192.168.10.1)
+        # ... other switch0 configuration ...
+    }
+}
+
+load-balance {
+    group G {
+        exclude-local-dns disable
+        flush-on-active enable
+        gateway-update-interval 20
+        interface eth0 {
+        }
+        interface eth1 {
+            failover-only
+        }
+        lb-local enable
+        lb-local-metric-change disable
+        transition-script /config/scripts/main-wan-down
+    }
+}
+
+firewall {
+    modify balance {
+        # Rule 10: Keep private networks in main table (don't load balance)
+        rule 10 {
+            action modify
+            description "do NOT load balance lan to lan"
+            destination {
+                group {
+                    network-group PRIVATE_NETS
+                }
+            }
+            modify {
+                table main
+            }
+        }
+        # Rule 20: Keep eth0 public IP in main table
+        rule 20 {
+            action modify
+            description "do NOT load balance destination public address"
+            destination {
+                group {
+                    address-group ADDRv4_eth0
+                }
+            }
+            modify {
+                table main
+            }
+        }
+        # Rule 30: Keep eth1 public IP in main table
+        rule 30 {
+            action modify
+            description "do NOT load balance destination public address"
+            destination {
+                group {
+                    address-group ADDRv4_eth1
+                }
+            }
+            modify {
+                table main
+            }
+        }
+        # Rule 70: Default catch-all - route to load-balance group G
+        # This is the critical rule that enables load-balancing
+        rule 70 {
+            action modify
+            modify {
+                lb-group G
+            }
+        }
+    }
+    name WG_IN {
+        default-action accept
+        # Add your firewall rules here
+    }
+    name WG_LOCAL {
+        default-action accept
+        # Add your firewall rules here
+    }
+}

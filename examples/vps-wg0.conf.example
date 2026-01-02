@@ -1,0 +1,55 @@
+# Example VPS WireGuard Configuration
+# /etc/wireguard/wg0.conf
+#
+# Replace placeholders:
+#   <VPS_PRIVATE_KEY> - VPS WireGuard private key
+#   <EDGEROUTER_PUBLIC_KEY> - EdgeRouter WireGuard public key
+#   <PSK> - Preshared key (optional but recommended)
+#   <INTERFACE_NAME> - Your VPS's main network interface (eth0, ens3, etc.)
+#                      Find it with: ip route | grep default | awk '{print $5}' | head -1
+
+[Interface]
+# VPS WireGuard TUNNEL IP address (private IP within WireGuard network)
+# This is NOT your VPS public IP - it's the IP used inside the VPN tunnel
+# Using 10.11.0.0/24 to avoid conflict with existing routes
+Address = 10.11.0.1/24
+
+# Port WireGuard will listen on (UDP)
+ListenPort = 51820
+
+# VPS private key (from key generation)
+# Replace <VPS_PRIVATE_KEY> with the output of: sudo cat /etc/wireguard/private.key
+PrivateKey = <VPS_PRIVATE_KEY>
+
+# Enable IP forwarding and NAT masquerade
+# Replace <INTERFACE_NAME> with your actual network interface name
+# Common names: eth0, ens3, enp0s3, eno1
+# Find it with: ip route | grep default | awk '{print $5}' | head -1
+# IMPORTANT: PostUp/PostDown must be one-liners (no line breaks or backslashes)
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o <INTERFACE_NAME> -j MASQUERADE
+
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o <INTERFACE_NAME> -j MASQUERADE
+
+[Peer]
+# EdgeRouter peer configuration
+PublicKey = <EDGEROUTER_PUBLIC_KEY>
+
+# Preshared Key (PSK) - OPTIONAL but recommended for additional security
+# Replace <PSK> with the preshared key generated during setup
+# If not using PSK, you can omit this line
+PresharedKey = <PSK>
+
+# Allowed IPs - EdgeRouter WireGuard IP and LAN subnet
+# Replace <EDGEROUTER_TUNNEL_IP> with EdgeRouter tunnel IP (e.g., 10.11.0.102)
+# Replace <LAN_SUBNET> with your EdgeRouter LAN subnet (e.g., 192.168.10.0/24)
+AllowedIPs = <EDGEROUTER_TUNNEL_IP>/32, <LAN_SUBNET>
+
+# Persistent keepalive to maintain connection through double NAT
+# 25 seconds is a good default for most NAT scenarios
+PersistentKeepalive = 25
+
+# Optional: Port forwarding example
+# If you want to forward ports from VPS to EdgeRouter LAN, add to PostUp:
+# IMPORTANT: PostUp must be a one-liner (no line breaks or backslashes)
+# PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o <INTERFACE_NAME> -j MASQUERADE; iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination <LAN_IP>:80; iptables -A FORWARD -p tcp -d <LAN_IP> --dport 80 -j ACCEPT
+# Replace <LAN_IP> with your EdgeRouter LAN IP (e.g., 192.168.10.22)

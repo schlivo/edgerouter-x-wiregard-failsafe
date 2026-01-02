@@ -1,0 +1,25 @@
+# Quick Log Commands - Copy & Paste
+
+# View recent logs (last 50 lines)
+tail -50 /var/log/wireguard-failsafe.log
+
+# Watch logs in real-time
+tail -f /var/log/wireguard-failsafe.log
+
+# View in system logs
+tail -50 /var/log/messages | grep wireguard-failsafe
+
+# Search for errors
+grep -i error /var/log/wireguard-failsafe.log
+
+# Check activations
+grep "ACTIVATED" /var/log/wireguard-failsafe.log | tail -10
+
+# Check deactivations
+grep "DEACTIVATED" /var/log/wireguard-failsafe.log | tail -10
+
+# Last 5 script executions
+grep "Script executed" /var/log/wireguard-failsafe.log | tail -5
+
+# From remote machine (replace with your EdgeRouter details)
+# ssh -p <PORT> <USER>@<EDGEROUTER_IP> "tail -50 /var/log/wireguard-failsafe.log"

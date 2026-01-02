@@ -1,0 +1,33 @@
+# Sensitive configuration files and EdgeRouter backup
+# Ignore entire config/ directory (contains local EdgeRouter backup with sensitive data)
+config/
+
+# Logs
+*.log
+/var/log/*.log
+
+# Backup files
+*.backup
+*.old
+*.bak
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+/tmp/
+
+# Scripts directory (keep only essential scripts in repo)
+scripts/*.sh
+!scripts/wireguard-failsafe.sh
+!scripts/wg-failsafe-recovery.sh
+!scripts/init-wg-handshake.sh

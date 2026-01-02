@@ -1,0 +1,35 @@
+#!/bin/sh
+# Load-Balance Transition Script
+# This script is called by EdgeOS load-balance system when WAN interface status changes
+# It triggers the WireGuard failsafe script to activate/deactivate as needed
+
+source /opt/vyatta/etc/functions/script-template
+if [ $# -eq 0 ]
+then 
+    echo "Usage: $0 [group] [interface] [status]"
+    exit 0
+fi
+
+run=/opt/vyatta/bin/vyatta-op-cmd-wrapper
+
+ETH0_STATUS=$($run show load-balance status | grep -A 2 eth0 | tail -n 1 | awk '{print $3}')
+ETH1_STATUS=$($run show load-balance status | grep -A 2 eth1 | tail -n 1 | awk '{print $3}')
+
+# Manage WireGuard failsafe tunnel
+# Run in background to avoid blocking SSH/other operations during route changes
+# The script has its own lock mechanism to prevent multiple instances
+if [ -f /config/scripts/wireguard-failsafe.sh ]; then
+    nohup /config/scripts/wireguard-failsafe.sh >/dev/null 2>&1 &
+    # Small delay to let script acquire lock and start
+    sleep 0.2
+fi
+
+# Optional: Add webhook notifications (IFTTT, Slack, etc.)
+# Uncomment and customize as needed:
+# curl=/usr/bin/curl
+# group="WAN Failover"
+# interface=$2
+# status=$3
+# curl -X POST -H "Content-Type: application/json" \
+#   -d '{"value1":"'"$group"'", "value2":"'"$interface"'", "value3":"'"$status"'"}' \
+#   https://your-webhook-url
