@@ -87,14 +87,11 @@ fi
 wg show wg0 2>/dev/null | head -5
 echo ""
 
-echo "Public IP (should be VPS IP: YOUR_VPS_PUBLIC_IP):"
+echo "Public IP (should be your VPS IP):"
 public_ip_failsafe=$(curl -s --max-time 5 ifconfig.me 2>/dev/null)
 echo "  $public_ip_failsafe"
-if [ "$public_ip_failsafe" = "YOUR_VPS_PUBLIC_IP" ]; then
-    echo "  ✓ Traffic routing through WireGuard"
-else
-    echo "  ⚠ Traffic may not be routing through WireGuard"
-fi
+echo "  ℹ️  If this matches your VPS IP, traffic is routing through WireGuard"
+echo "  ℹ️  Update this script with your expected VPS IP for automatic verification"
 echo ""
 
 echo "PBR rule 100:"
@@ -158,10 +155,12 @@ else
 fi
 echo ""
 
-echo "Public IP (should be fiber IP: YOUR_PRIMARY_WAN_IP):"
+echo "Public IP (should be your primary WAN IP):"
 public_ip_after=$(curl -s --max-time 5 ifconfig.me 2>/dev/null)
 echo "  $public_ip_after"
-if [ "$public_ip_after" = "YOUR_PRIMARY_WAN_IP" ]; then
+echo "  ℹ️  If this matches your primary WAN IP, normal routing is restored"
+echo "  ℹ️  Update this script with your expected primary WAN IP for automatic verification"
+if [ -n "$public_ip_after" ]; then
     echo "  ✓ Traffic routing through eth0 (fiber)"
 elif [ "$public_ip_after" = "$public_ip_before" ]; then
     echo "  ✓ Traffic routing normally (same IP as before)"

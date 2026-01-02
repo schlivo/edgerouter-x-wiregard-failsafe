@@ -57,9 +57,10 @@ if [ -z "$ENDPOINT" ]; then
 fi
 
 # Default endpoint if still not found
+# IMPORTANT: Update this with your actual VPS public IP and port
 if [ -z "$ENDPOINT" ]; then
-    ENDPOINT="YOUR_VPS_PUBLIC_IP:51820"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Using default endpoint: $ENDPOINT" | logger -t wireguard-init
+    ENDPOINT="YOUR_VPS_PUBLIC_IP:51820"  # Replace with your VPS public IP
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: Using placeholder endpoint. Update script with your VPS IP!" | logger -t wireguard-init
 fi
 
 # Force handshake if we have the peer public key

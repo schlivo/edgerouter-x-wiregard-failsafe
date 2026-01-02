@@ -26,14 +26,14 @@ graph TB
     end
     
     subgraph VPS
-        VPS_Server[VPS Server<br/>YOUR_VPS_PUBLIC_IP]
+        VPS_Server[VPS Server<br/><VPS_PUBLIC_IP>]
         WG_Peer[WireGuard Peer<br/>10.11.0.1]
     end
     
     subgraph EdgeRouter
         subgraph Interfaces
-            eth0[eth0<br/>Primary WAN<br/>192.168.1.10/24]
-            eth1[eth1<br/>Backup WAN<br/>192.168.2.10/24]
+            eth0[eth0<br/>Primary WAN<br/><PRIMARY_WAN_IP>/24]
+            eth1[eth1<br/>Backup WAN<br/><BACKUP_WAN_IP>/24]
             wg0[wg0<br/>WireGuard<br/>10.11.0.102/24]
             switch0[switch0<br/>LAN<br/>192.168.10.1/24]
         end
@@ -193,16 +193,16 @@ EdgeOS uses **policy-based routing** with multiple routing tables. Traffic is ma
 │ T+2s:  activate_wg_failsafe() starts                          │
 │                                                               │
 │        ┌──────────────────────────────────────────────────┐ │
-│        │ STEP 1: Setup Endpoint Route                      │ │
-│        ├──────────────────────────────────────────────────┤ │
-│        │ ip route replace YOUR_VPS_PUBLIC_IP/32                 │ │
-│        │   via 192.168.2.1 dev eth1                        │ │
+        │        │ STEP 1: Setup Endpoint Route                      │ │
+        │        ├──────────────────────────────────────────────────┤ │
+        │        │ ip route replace <VPS_PUBLIC_IP>/32              │ │
+        │        │   via <BACKUP_GW> dev eth1                        │ │
 │        │   metric 190                                      │ │
 │        │                                                   │ │
 │        │ Purpose: Ensure VPS endpoint is reachable        │ │
 │        │         via eth1 (backup interface)             │ │
 │        │                                                   │ │
-│        │ Test: ping YOUR_VPS_PUBLIC_IP → ✅ SUCCESS              │ │
+        │        │ Test: ping <VPS_PUBLIC_IP> → ✅ SUCCESS           │ │
 │        │ Log: "Endpoint route added"                       │ │
 │        │ Log: "Endpoint reachable"                         │ │
 │        └──────────────────────────────────────────────────┘ │
@@ -233,7 +233,7 @@ EdgeOS uses **policy-based routing** with multiple routing tables. Traffic is ma
 │        │                                                   │ │
 │        │   2. Force handshake:                             │ │
 │        │      wg set wg0 peer <key>                       │ │
-│        │        endpoint YOUR_VPS_PUBLIC_IP:51820               │ │
+│        │        endpoint <VPS_PUBLIC_IP>:51820            │ │
 │        │        persistent-keepalive 25                   │ │
 │        │                                                   │ │
 │        │   3. Wait 5 seconds for handshake                │ │
@@ -352,7 +352,7 @@ EdgeOS uses **policy-based routing** with multiple routing tables. Traffic is ma
 │      (Forces LAN traffic to main table with WG route)        │
 │                                                               │
 │ Endpoint Route:                                               │
-│   ✅ YOUR_VPS_PUBLIC_IP/32 via 192.168.2.1 dev eth1 metric 190    │
+│   ✅ <VPS_PUBLIC_IP>/32 via <BACKUP_GW> dev eth1 metric 190 │
 │      (Ensures VPS endpoint reachable via eth1)               │
 │                                                               │
 │ WireGuard Interface:                                          │
@@ -398,7 +398,7 @@ EdgeOS uses **policy-based routing** with multiple routing tables. Traffic is ma
 │        │ STEP 2: Clean main table                         │ │
 │        ├──────────────────────────────────────────────────┤ │
 │        │ ├─ Remove: default via 10.11.0.1 dev wg0 (main) │ │
-│        │ ├─ Remove: YOUR_VPS_PUBLIC_IP/32 (endpoint)           │ │
+│        │ ├─ Remove: <VPS_PUBLIC_IP>/32 (endpoint)         │ │
 │        │ ├─ Remove: ip rule priority 69 (LAN → main)    │ │
 │        │ └─ Remove: stale eth1 defaults                   │ │
 │        └──────────────────────────────────────────────────┘ │
@@ -544,7 +544,7 @@ Table 201 (eth0 routes)
     ▼
 Primary WAN (eth0)
     │
-    │ Gateway: 192.168.1.1
+    │ Gateway: <PRIMARY_GW>
     ▼
 Internet
 ```
@@ -571,9 +571,9 @@ WireGuard Tunnel (wg0)
     ▼
 Backup WAN (eth1)
     │
-    │ Gateway: 192.168.2.1
+    │ Gateway: <BACKUP_GW>
     ▼
-VPS Server (YOUR_VPS_PUBLIC_IP)
+VPS Server (<VPS_PUBLIC_IP>)
     │
     │ NAT masquerade
     ▼
@@ -589,11 +589,11 @@ Key variables in `wireguard-failsafe.sh`:
 ```bash
 WG_IFACE="wg0"
 WG_PEER_IP="10.11.0.1"
-WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"
+WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"  # Replace with your VPS public IP
 PRIMARY_DEV="eth0"
-PRIMARY_GW="192.168.1.1"
+PRIMARY_GW="YOUR_PRIMARY_GW"  # Replace with your primary WAN gateway
 BACKUP_DEV="eth1"
-BACKUP_GW="192.168.2.1"
+BACKUP_GW="YOUR_BACKUP_GW"  # Replace with your backup WAN gateway
 
 METRIC_WG=40
 METRIC_PRIMARY=100
