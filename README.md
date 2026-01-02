@@ -63,7 +63,7 @@ When your primary WAN (eth0) connection fails:
 
 Before starting, ensure you have:
 
-- [ ] EdgeRouter with EdgeOS 2.x or later
+- [ ] EdgeRouter with EdgeOS 3.x or later (WireGuard support required)
 - [ ] Two WAN interfaces configured (primary + 4G backup)
 - [ ] Ubuntu 24.10 VPS with static public IP
 - [ ] Root/sudo access to both EdgeRouter and VPS

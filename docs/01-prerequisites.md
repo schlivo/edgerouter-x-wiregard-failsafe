@@ -6,7 +6,7 @@ This guide outlines all the hardware, software, and network requirements needed 
 
 ### EdgeRouter
 
-- **Model**: Any EdgeRouter model that supports EdgeOS 2.x or later
+- **Model**: Any EdgeRouter model that supports EdgeOS 3.x or later
   - EdgeRouter X (ER-X)
   - EdgeRouter Lite (ER-Lite)
   - EdgeRouter Pro (ER-Pro)
@@ -49,12 +49,13 @@ This guide outlines all the hardware, software, and network requirements needed 
 
 ### EdgeRouter
 
-- **EdgeOS Version**: 2.0.0 or later
+- **EdgeOS Version**: 3.0.0 or later (WireGuard support required)
   - Check version: `show version`
   - Update if needed: Follow Ubiquiti update procedures
+  - **Important**: WireGuard is only available in EdgeOS 3.x and later
 
 - **WireGuard Support**: 
-  - EdgeOS 2.0+ includes WireGuard support
+  - EdgeOS 3.0+ includes WireGuard support
   - Verify: `show interfaces wireguard` (should not error)
 
 - **Required Features**:
@@ -144,7 +145,7 @@ EdgeRouter
 
 Before starting the setup process, verify:
 
-- [ ] EdgeRouter is running EdgeOS 2.0+
+- [ ] EdgeRouter is running EdgeOS 3.0+ (WireGuard support required)
 - [ ] Primary WAN (eth0) is configured and working
 - [ ] Backup WAN (eth1) is configured and working
 - [ ] Load-balance group is configured on EdgeRouter
@@ -168,11 +169,12 @@ Once you've verified all prerequisites:
 ### EdgeRouter Issues
 
 **Problem**: EdgeOS version too old
-- **Solution**: Update EdgeOS following Ubiquiti's update procedures
+- **Solution**: Update EdgeOS to 3.0+ following Ubiquiti's update procedures
 - **Check**: `show version`
+- **Note**: WireGuard requires EdgeOS 3.x or later
 
 **Problem**: WireGuard not available
-- **Solution**: Ensure EdgeOS 2.0+ is installed
+- **Solution**: Ensure EdgeOS 3.0+ is installed (WireGuard is only available in EdgeOS 3.x+)
 - **Check**: `show interfaces wireguard` (should not error)
 
 ### VPS Issues

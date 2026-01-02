@@ -9,7 +9,7 @@ This guide will walk you through configuring your EdgeRouter for WireGuard fails
 **Time required**: 20-30 minutes
 
 **Prerequisites**: 
-- EdgeRouter with EdgeOS 2.0+
+- EdgeRouter with EdgeOS 3.0+ (WireGuard support required)
 - Primary WAN (eth0) configured
 - Backup WAN (eth1) configured
 - VPS WireGuard setup completed (from [VPS Setup Guide](02-vps-setup.md))
