@@ -7,12 +7,12 @@ set -euo pipefail
 # ================= CONFIG =================
 # IMPORTANT: Update these variables to match your network configuration
 WG_IFACE="wg0"
-WG_PEER_IP="10.11.0.1"              # VPS WireGuard tunnel IP
-WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"    # Replace with your VPS public IP (e.g., 203.0.113.10)
+WG_PEER_IP="YOUR_WG_PEER_IP"              # Replace with your VPS WireGuard tunnel IP (e.g., 10.11.0.1)
+WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"          # Replace with your VPS public IP (e.g., 203.0.113.10)
 PRIMARY_DEV="eth0"
-PRIMARY_GW="YOUR_PRIMARY_GW"        # Replace with your primary WAN gateway (e.g., 192.168.1.1)
+PRIMARY_GW="YOUR_PRIMARY_GW"              # Replace with your primary WAN gateway (e.g., 192.168.1.1)
 BACKUP_DEV="eth1"
-BACKUP_GW="YOUR_BACKUP_GW"          # Replace with your backup WAN gateway (e.g., 192.168.2.1)
+BACKUP_GW="YOUR_BACKUP_GW"                # Replace with your backup WAN gateway (e.g., 192.168.2.1)
 
 METRIC_WG=40
 METRIC_PRIMARY=100

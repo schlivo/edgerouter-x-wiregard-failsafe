@@ -21,10 +21,15 @@ echo
 
 echo "3. WireGuard Connectivity Test:"
 echo "-------------------------------"
-if ping -c 2 -W 2 10.11.0.1 >/dev/null 2>&1; then
-    echo "✅ Can ping WireGuard peer (10.11.0.1)"
+WG_PEER_IP="${WG_PEER_IP:-YOUR_WG_PEER_IP}"  # Set WG_PEER_IP env var or update this
+if [ "$WG_PEER_IP" != "YOUR_WG_PEER_IP" ]; then
+    if ping -c 2 -W 2 "$WG_PEER_IP" >/dev/null 2>&1; then
+        echo "✅ Can ping WireGuard peer ($WG_PEER_IP)"
+    else
+        echo "❌ Cannot ping WireGuard peer ($WG_PEER_IP)"
+    fi
 else
-    echo "❌ Cannot ping WireGuard peer (10.11.0.1)"
+    echo "⚠️  Set WG_PEER_IP environment variable to test connectivity"
 fi
 echo
 

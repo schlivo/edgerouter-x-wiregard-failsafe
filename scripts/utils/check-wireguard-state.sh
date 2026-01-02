@@ -58,12 +58,17 @@ echo ""
 
 echo "6. WireGuard Route in Config:"
 echo "------------------------------"
+WG_PEER_IP="${WG_PEER_IP:-YOUR_WG_PEER_IP}"  # Set WG_PEER_IP env var or update this
 wg_route=$(/bin/cli-shell-api showConfig protocols static route 0.0.0.0/0 2>/dev/null)
-if echo "$wg_route" | grep -q "10.11.0.1"; then
+if [ "$WG_PEER_IP" != "YOUR_WG_PEER_IP" ] && echo "$wg_route" | grep -q "$WG_PEER_IP"; then
     echo "✓ WireGuard default route exists in config"
-    echo "$wg_route" | grep -A 5 "10.11.0.1"
+    echo "$wg_route" | grep -A 5 "$WG_PEER_IP"
 else
-    echo "✗ WireGuard default route not in config"
+    if [ "$WG_PEER_IP" = "YOUR_WG_PEER_IP" ]; then
+        echo "⚠️  Set WG_PEER_IP environment variable to check route"
+    else
+        echo "✗ WireGuard default route not in config"
+    fi
 fi
 echo ""
 
