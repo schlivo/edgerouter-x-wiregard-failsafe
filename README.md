@@ -65,7 +65,7 @@ Before starting, ensure you have:
 
 - [ ] EdgeRouter with EdgeOS 3.x or later (WireGuard support required)
 - [ ] Two WAN interfaces configured (primary + 4G backup)
-- [ ] Ubuntu 24.10 VPS with static public IP
+- [ ] Debian 12/11 or Ubuntu 24.04/22.04 LTS VPS with static public IP
 - [ ] Root/sudo access to both EdgeRouter and VPS
 - [ ] Port 51820/UDP open on VPS firewall
 - [ ] Basic understanding of networking concepts

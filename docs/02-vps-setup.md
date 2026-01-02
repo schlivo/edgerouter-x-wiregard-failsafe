@@ -1,6 +1,8 @@
 # VPS Setup Guide
 
-This guide will walk you through setting up WireGuard on your Ubuntu VPS server. The VPS will act as the endpoint for your WireGuard tunnel, routing traffic from your EdgeRouter when the primary WAN fails.
+This guide will walk you through setting up WireGuard on your Debian or Ubuntu VPS server. The VPS will act as the endpoint for your WireGuard tunnel, routing traffic from your EdgeRouter when the primary WAN fails.
+
+**Recommended**: Debian 12 (Bookworm) or Debian 11 (Bullseye) for better stability and minimal footprint. Ubuntu 24.04 LTS or 22.04 LTS also works perfectly.
 
 ## Overview
 
@@ -9,7 +11,7 @@ This guide will walk you through setting up WireGuard on your Ubuntu VPS server.
 **Time required**: 15-30 minutes
 
 **Prerequisites**: 
-- Ubuntu 24.10 or 22.04 LTS VPS
+- Debian 12 (Bookworm), Debian 11 (Bullseye), Ubuntu 24.04 LTS, or Ubuntu 22.04 LTS VPS
 - Root/sudo access
 - Static public IP address
 - Port 51820/UDP open in firewall
@@ -38,7 +40,7 @@ This ensures you have the latest security updates and packages.
 
 ## Step 2: Install WireGuard
 
-Ubuntu includes WireGuard in its repositories, so installation is straightforward:
+Debian and Ubuntu include WireGuard in their repositories, so installation is straightforward:
 
 ```bash
 sudo apt install wireguard wireguard-tools -y

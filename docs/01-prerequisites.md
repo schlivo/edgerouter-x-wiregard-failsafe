@@ -28,7 +28,7 @@ This guide outlines all the hardware, software, and network requirements needed 
 ### VPS Server
 
 - **Provider**: Any VPS provider (DigitalOcean, Linode, Vultr, OVH, AWS, etc.)
-- **OS**: Ubuntu 24.10 (or Ubuntu 22.04 LTS minimum)
+- **OS**: Debian 12 (Bookworm) or Debian 11 (Bullseye) recommended, or Ubuntu 24.04 LTS / 22.04 LTS
 - **Specifications**:
   - 1 CPU core minimum (2+ recommended)
   - 1GB RAM minimum (2GB+ recommended)
@@ -65,7 +65,7 @@ This guide outlines all the hardware, software, and network requirements needed 
 
 ### VPS
 
-- **Operating System**: Ubuntu 24.10 or Ubuntu 22.04 LTS
+- **Operating System**: Debian 12 (Bookworm) or Debian 11 (Bullseye) recommended, or Ubuntu 24.04 LTS / 22.04 LTS
 - **WireGuard**: Will be installed during setup
 - **Required Packages**:
   - `wireguard`
@@ -149,7 +149,7 @@ Before starting the setup process, verify:
 - [ ] Primary WAN (eth0) is configured and working
 - [ ] Backup WAN (eth1) is configured and working
 - [ ] Load-balance group is configured on EdgeRouter
-- [ ] VPS is provisioned with Ubuntu 24.10 or 22.04
+- [ ] VPS is provisioned with Debian 12/11 or Ubuntu 24.04/22.04 LTS
 - [ ] VPS has static public IP address
 - [ ] VPS firewall allows UDP port 51820
 - [ ] You have SSH access to both EdgeRouter and VPS
