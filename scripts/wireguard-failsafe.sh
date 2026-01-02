@@ -88,7 +88,23 @@ is_link_up() {
 }
 
 # Check load-balance status (EdgeOS specific)
-is_eth_active() { $RUN_CMD show load-balance status 2>/dev/null | grep -A2 "$1" | tail -1 | grep -q "active"; }
+# Look for the interface section and check its status line specifically
+is_eth_active() {
+    local dev=$1
+    local output=$($RUN_CMD show load-balance status 2>/dev/null)
+    # Find the interface section, then look for the status line in that section
+    # Use awk to find the interface block and extract status
+    echo "$output" | awk -v iface="$dev" '
+        /^[[:space:]]*interface[[:space:]]*:[[:space:]]*$/ { in_section=0; next }
+        /^[[:space:]]*interface[[:space:]]*:[[:space:]]*[^[:space:]]/ {
+            current_iface = $NF
+            in_section = (current_iface == iface)
+            next
+        }
+        in_section && /^[[:space:]]*status[[:space:]]*:[[:space:]]*active/ { found=1; exit }
+        END { exit !found }
+    '
+}
 
 # Check if gateway is reachable via specific interface
 can_reach_gw() {
