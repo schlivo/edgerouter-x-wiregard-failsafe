@@ -166,6 +166,13 @@ Address = 10.11.0.1/24
 # Port WireGuard will listen on (UDP)
 ListenPort = 51820
 
+# MTU setting (must match EdgeRouter)
+# 1280 is the safest value (works on most paths including PPPoE, mobile, IPv6)
+# If you experience fragmentation issues (ping works but websites don't), keep 1280
+# If 1280 works well, you can try higher values (1380-1412) for better performance
+# Default 1420 is often too high and causes fragmentation/blackholing
+MTU = 1280
+
 # VPS private key (from Step 4)
 # Replace <VPS_PRIVATE_KEY> with the output of: sudo cat /etc/wireguard/private.key
 PrivateKey = <VPS_PRIVATE_KEY>

@@ -141,7 +141,151 @@ grep wireguard-init /var/log/messages | tail -20
 - **Endpoint unreachable**: Verify backup WAN (eth1) is working and can reach VPS
 - **VPS not forwarding**: Check VPS IP forwarding and iptables rules
 
-### Issue: "myip works but sites don't"
+### Issue: MTU Fragmentation / Blackholing (Ping Works, Websites Don't)
+
+**Symptoms:**
+- Small packets work fine (ICMP ping, small traceroute probes)
+- You can reach 10.11.0.1 (the VPN gateway) and often a few hops beyond
+- Larger packets fail silently (TCP SYN/ACK, HTTP(S), speedtest.net, page loads)
+- Sites "don't load" or hang, speedtest fails early
+- `curl ifconfig.me` might work (small response) but browsing fails
+
+**Cause**: Classic WireGuard MTU fragmentation/blackholing. The effective path MTU is smaller than WireGuard's default MTU (1420), causing larger packets to be dropped silently.
+
+**Why this happens:**
+- Default WireGuard MTU = 1420
+- WireGuard overhead = ~60–80 bytes (UDP + IP + WG headers)
+- If your path from home → VPS has MTU <1500 (PPPoE=1492, mobile/ISP tunnels, VPS quirks), the effective usable payload drops below 1420
+- Fragmentation occurs → many paths drop fragmented packets or have broken Path MTU Discovery
+
+**Quick Confirmation Tests:**
+
+1. **Small ping works:**
+   ```bash
+   ping -c 4 8.8.8.8
+   ```
+
+2. **Large ping fails/fragments:**
+   ```bash
+   ping -M do -s 1400 8.8.8.8
+   ```
+   Should fail with "packet too big" or timeout. Lower size until it succeeds:
+   ```bash
+   ping -M do -s 1300 8.8.8.8
+   ping -M do -s 1280 8.8.8.8
+   ```
+   Note the largest size that works → add ~28 bytes (ICMP header) → that's your rough path MTU.
+
+3. **From the router itself (more accurate):**
+   ```bash
+   ping -I wg0 -M do -s 1372 8.8.8.8  # 1372 + 28 = 1400
+   ```
+   If it fails, lower step by step (1350, 1300, 1280...).
+
+**Solution: Set Conservative MTU (Recommended Fix)**
+
+Set MTU to **1280** on both EdgeRouter and VPS:
+
+**On EdgeRouter:**
+```bash
+configure
+set interfaces wireguard wg0 mtu 1280
+commit
+save
+exit
+```
+
+**On VPS** (in `/etc/wireguard/wg0.conf`):
+```ini
+[Interface]
+...
+MTU = 1280
+```
+
+Then restart WireGuard:
+```bash
+# On EdgeRouter (if failsafe is active, it will re-activate)
+sudo wg-quick down wg0
+sudo wg-quick up wg0
+
+# On VPS
+sudo systemctl restart wg-quick@wg0
+```
+
+**MTU Guidelines:**
+- **1280**: Safest value (guaranteed for IPv6 too, works almost everywhere) - **Start here**
+- **1380–1412**: If you want to maximize speed (test higher after 1280 works)
+- **1420**: Default (often too high for paths with reduced MTU)
+
+**Alternative: MSS Clamping (TCP only, less effective)**
+
+If you prefer not changing MTU globally, add MSS clamping (helps TCP, doesn't fix UDP/DNS as well):
+
+```bash
+configure
+set firewall options mss-clamp interface-type all
+set firewall options mss-clamp mss 1360   # or 1300–1380, experiment
+commit
+save
+```
+
+But MTU=1280 is simpler and fixes more cases.
+
+**This resolves 80–90% of "traceroute/ping works, websites/speedtest don't" cases in WireGuard full-tunnel setups.**
+
+**Also verify firewall rules:**
+```bash
+# Check if rule 5 exists in WG_IN
+show firewall name WG_IN
+
+# Should show rule 5 allowing traffic from 10.11.0.0/24
+# If missing, add it (see EdgeRouter Setup Guide Step 3.5)
+```
+
+### Issue: WireGuard Uses Wrong Interface for Endpoint
+
+**Symptoms:**
+- WireGuard is active but using eth0 (primary WAN) instead of eth1 (backup WAN) to reach VPS
+- `ip route get <VPS_IP>` shows route via eth0 instead of eth1
+
+**Cause**: The failsafe script should add the endpoint route via eth1, but it may not be working correctly.
+
+**Diagnosis:**
+```bash
+# Check endpoint route
+ip route get 51.38.51.158  # Replace with your VPS IP
+
+# Check if route exists
+ip route show | grep 51.38.51.158
+
+# Check failsafe script logs
+tail -50 /var/log/wireguard-failsafe.log | grep -i endpoint
+```
+
+**Solution:**
+
+The script should automatically add the route. If it's not working:
+
+1. **Re-run the failsafe script:**
+   ```bash
+   sudo /config/scripts/wireguard-failsafe.sh
+   ```
+
+2. **Verify the route was added:**
+   ```bash
+   ip route get 51.38.51.158
+   # Should show: via 192.168.2.1 dev eth1
+   ```
+
+3. **If still not working, check script configuration:**
+   ```bash
+   # Verify script variables are correct
+   head -15 /config/scripts/wireguard-failsafe.sh | grep -E "BACKUP_GW|BACKUP_DEV|WG_ENDPOINT"
+   ```
+
+The script adds the route with metric 190 (lower = higher priority) to ensure it takes precedence over default routes.
+
+### Issue: "myip works but sites don't" (Policy Tables)
 
 **Symptoms:**
 - `curl ifconfig.me` shows VPS IP (correct)

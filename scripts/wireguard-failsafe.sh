@@ -331,15 +331,29 @@ activate_wg_failsafe() {
 
     sleep 1
 
-    # dnsmasq check & restart only if needed
-    if pgrep -x dnsmasq >/dev/null; then
-        if ! nslookup -timeout=5 google.com 192.168.10.1 >/dev/null 2>&1; then
-            log "dnsmasq not resolving → restart"
-            /etc/init.d/dnsmasq restart >/dev/null 2>&1 || log "dnsmasq restart failed"
-            sleep 3
-        else
-            log "dnsmasq OK - no restart"
+    # Optional: dnsmasq check & restart only if dnsmasq is running and configured
+    # Note: Not all EdgeRouter configurations use dnsmasq - this is optional
+    if command -v dnsmasq >/dev/null 2>&1 && pgrep -x dnsmasq >/dev/null; then
+        # Try to detect router IP from switch0 (LAN interface) - common EdgeRouter setup
+        # Fallback to common default if detection fails
+        local router_ip=$(ip addr show switch0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1 | head -1)
+        if [ -z "$router_ip" ]; then
+            # Try to get from any interface with 192.168.x.x (common LAN range)
+            router_ip=$(ip addr show 2>/dev/null | grep "inet 192.168" | awk '{print $2}' | cut -d'/' -f1 | head -1)
         fi
+        if [ -n "$router_ip" ]; then
+            if ! nslookup -timeout=5 google.com "$router_ip" >/dev/null 2>&1; then
+                log "dnsmasq not resolving → restart"
+                /etc/init.d/dnsmasq restart >/dev/null 2>&1 || log "dnsmasq restart failed"
+                sleep 3
+            else
+                log "dnsmasq OK - no restart"
+            fi
+        else
+            log "dnsmasq running but router IP not detected - skipping DNS check"
+        fi
+    else
+        log "dnsmasq not running - skipping DNS check (optional)"
     fi
 
     log "Failsafe ACTIVATED"

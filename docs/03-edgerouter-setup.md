@@ -118,7 +118,10 @@ configure
 set interfaces wireguard wg0 address 10.11.0.102/24
 set interfaces wireguard wg0 description "4G Failsafe Tunnel to VPS"
 set interfaces wireguard wg0 listen-port 51820
-set interfaces wireguard wg0 mtu 1420
+set interfaces wireguard wg0 mtu 1280
+# Note: 1280 is the safest MTU value (works on most paths including PPPoE, mobile, IPv6)
+# If you experience fragmentation issues (ping works but websites don't), keep 1280
+# If 1280 works well, you can try higher values (1380-1412) for better performance
 set interfaces wireguard wg0 route-allowed-ips false
 set interfaces wireguard wg0 disable
 
@@ -144,6 +147,37 @@ exit
 - `<VPS_PUBLIC_KEY>`: VPS public key from Step 2
 - `<VPS_PUBLIC_IP>`: VPS public IP address from Step 2
 - `<PSK>`: Preshared key from Step 2 (optional)
+
+## Step 3.5: Configure Firewall Rules for WireGuard
+
+**Important**: WireGuard needs proper firewall rules to allow traffic from the tunnel network.
+
+**On EdgeRouter, configure firewall rules:**
+
+```bash
+configure
+
+# Allow traffic from WireGuard tunnel network (10.11.0.0/24)
+# This rule should be BEFORE the established/related rule (rule 10)
+set firewall name WG_IN rule 5 action accept
+set firewall name WG_IN rule 5 description "Allow traffic from WireGuard tunnel network"
+set firewall name WG_IN rule 5 source address 10.11.0.0/24
+
+# Verify the rules are in correct order
+show firewall name WG_IN
+
+commit
+save
+exit
+```
+
+**Why this is needed:**
+- `WG_IN` firewall only allows `established/related` connections by default
+- Return traffic from VPS needs to be allowed
+- Rule 5 (before rule 10) ensures new connections from the tunnel network are accepted
+- This prevents "ping works but websites don't load" issues caused by firewall blocking
+
+**Note**: The firewall rule is applied to the `wg0` interface automatically via the interface configuration.
 
 ## Step 4: Configure Load-Balance Group
 

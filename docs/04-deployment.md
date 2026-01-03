@@ -177,6 +177,11 @@ BACKUP_GW="YOUR_BACKUP_GW"                # Replace with your backup WAN gateway
 
 **Update these values** to match your network configuration. The script will not work correctly if these are not set properly.
 
+**Important Notes:**
+- **MTU**: The script doesn't change MTU - it should be set to **1280** in the EdgeRouter config (see Step 3 in EdgeRouter Setup)
+- **Endpoint Route**: The script automatically adds a route for the VPS endpoint via eth1 (backup WAN) when failsafe activates
+- **Firewall Rules**: Ensure firewall rule 5 is configured in WG_IN (see Step 3.5 in EdgeRouter Setup)
+
 ## Step 7: Verify Deployment
 
 **On EdgeRouter, verify all scripts exist and are executable:**

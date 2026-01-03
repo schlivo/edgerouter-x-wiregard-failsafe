@@ -22,7 +22,11 @@ interfaces {
             }
         }
         listen-port 51820
-        mtu 1420
+        mtu 1280
+        # Note: 1280 is the safest MTU value (works on most paths including PPPoE, mobile, IPv6)
+        # If you experience fragmentation issues (ping works but websites don't), keep 1280
+        # If 1280 works well, you can try higher values (1380-1412) for better performance
+        # Default 1420 is often too high and causes fragmentation/blackholing
         peer <VPS_PUBLIC_KEY> {
             allowed-ips 0.0.0.0/0
             endpoint <VPS_PUBLIC_IP>:51820
@@ -119,11 +123,46 @@ firewall {
         }
     }
     name WG_IN {
-        default-action accept
-        # Add your firewall rules here
+        default-action drop
+        rule 5 {
+            action accept
+            description "Allow traffic from WireGuard tunnel network"
+            source {
+                address 10.11.0.0/24
+            }
+        }
+        rule 10 {
+            action accept
+            description "Allow established/related connections"
+            state {
+                established enable
+                related enable
+            }
+        }
+        rule 20 {
+            action drop
+            description "Drop invalid state"
+            state {
+                invalid enable
+            }
+        }
     }
     name WG_LOCAL {
-        default-action accept
-        # Add your firewall rules here
+        default-action drop
+        rule 10 {
+            action accept
+            description "Allow established/related connections"
+            state {
+                established enable
+                related enable
+            }
+        }
+        rule 20 {
+            action drop
+            description "Drop invalid state"
+            state {
+                invalid enable
+            }
+        }
     }
 }

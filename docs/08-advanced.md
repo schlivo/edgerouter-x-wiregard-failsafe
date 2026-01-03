@@ -66,22 +66,59 @@ ip rule add from 192.168.10.0/24 table main priority 69
 
 ### WireGuard MTU
 
-Optimize MTU for your connection:
+**⚠️ Important**: MTU fragmentation is a common cause of "ping works but websites don't load" issues. See [Troubleshooting Guide - MTU Fragmentation](../docs/06-troubleshooting.md#issue-mtu-fragmentation--blackholing-ping-works-websites-dont) for detailed diagnosis.
+
+**Recommended: Start with MTU 1280**
+
+The safest and most reliable MTU value is **1280**, which works on almost all network paths including:
+- PPPoE connections (often 1492 MTU)
+- Mobile/4G/5G connections
+- VPS providers with reduced MTU
+- IPv6 compatibility
 
 ```bash
 # On EdgeRouter
 configure
-set interfaces wireguard wg0 mtu 1420
+set interfaces wireguard wg0 mtu 1280
 commit
 save
 exit
 ```
 
+**On VPS** (in `/etc/wireguard/wg0.conf`):
+```ini
+[Interface]
+...
+MTU = 1280
+```
+
 **MTU Guidelines:**
-- Default: 1420 (works for most connections)
-- 4G connections: Try 1280-1380
-- Fiber connections: Can use up to 1500
-- Test with: `ping -M do -s 1420 10.11.0.1`
+- **1280**: Safest value (recommended starting point) - guaranteed to work on IPv6 and most paths
+- **1380–1412**: If you want to maximize speed (test higher after 1280 works)
+- **1420**: Default (often too high for paths with reduced MTU, causes fragmentation)
+
+**Testing MTU:**
+
+1. **Test current path MTU:**
+   ```bash
+   # From EdgeRouter
+   ping -I wg0 -M do -s 1372 8.8.8.8  # 1372 + 28 = 1400
+   ```
+   If it fails, lower the size until it works. The working size + 28 = your path MTU.
+
+2. **Test with different MTU values:**
+   ```bash
+   # Set MTU temporarily
+   ip link set wg0 mtu 1280
+   # Test connectivity
+   ping -c 4 8.8.8.8
+   curl -I https://www.google.com
+   ```
+
+**If you experience fragmentation issues:**
+- Start with MTU 1280 (most reliable)
+- If 1280 works, you can try increasing gradually (1300, 1350, 1380, 1412)
+- Test after each change with large packet pings and real browsing
 
 ### Persistent Keepalive
 

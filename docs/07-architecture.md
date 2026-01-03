@@ -196,15 +196,20 @@ EdgeOS uses **policy-based routing** with multiple routing tables. Traffic is ma
         │        │ STEP 1: Setup Endpoint Route                      │ │
         │        ├──────────────────────────────────────────────────┤ │
         │        │ ip route replace <VPS_PUBLIC_IP>/32              │ │
-        │        │   via <BACKUP_GW> dev eth1                        │ │
-│        │   metric 190                                      │ │
-│        │                                                   │ │
-│        │ Purpose: Ensure VPS endpoint is reachable        │ │
-│        │         via eth1 (backup interface)             │ │
-│        │                                                   │ │
+        │        │   via <BACKUP_GW> dev eth1 metric 190            │ │
+        │        │                                                   │ │
+        │        │ Purpose: Ensure VPS endpoint is reachable        │ │
+        │        │         via eth1 (backup interface)             │ │
+        │        │         Metric 190 ensures it takes precedence   │ │
+        │        │         over default routes (lower = higher)     │ │
+        │        │                                                   │ │
+        │        │ Verification: Script checks route after adding  │ │
+        │        │   If route uses wrong interface, forces metric 50│ │
+        │        │                                                   │ │
         │        │ Test: ping <VPS_PUBLIC_IP> → ✅ SUCCESS           │ │
-│        │ Log: "Endpoint route added"                       │ │
-│        │ Log: "Endpoint reachable"                         │ │
+        │        │ Log: "Endpoint route added"                       │ │
+        │        │ Log: "Endpoint route verified: using eth1"        │ │
+        │        │ Log: "Endpoint reachable"                        │ │
 │        └──────────────────────────────────────────────────┘ │
 │                                                               │
 │        ┌──────────────────────────────────────────────────┐ │
