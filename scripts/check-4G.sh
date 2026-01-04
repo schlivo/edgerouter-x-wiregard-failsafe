@@ -27,8 +27,8 @@ CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
 # ================= CONFIGURATION =================
 # Uses BACKUP_DEV and ALERT_URL from config, with fallbacks
 
-# ntfy.sh URL for notifications (full URL from config, or default)
-NTFY_URL="${ALERT_URL:-https://ntfy.sh/your-4g-alerts}"
+# ntfy.sh URL for notifications (set ALERT_URL in config file)
+NTFY_URL="${ALERT_URL:-}"
 
 # Target to ping (use a reliable external IP)
 PING_TARGET="8.8.8.8"
@@ -63,7 +63,7 @@ done
 # Alert if all pings failed
 if [ "$FAIL_COUNT" -ge "$MAX_FAILS" ]; then
     # Try to send notification (with timeout to prevent hanging)
-    if command -v curl >/dev/null 2>&1; then
+    if [ -n "$NTFY_URL" ] && command -v curl >/dev/null 2>&1; then
         curl -s --max-time 10 \
             -H "Title: 4G Link Down" \
             -H "Priority: high" \
