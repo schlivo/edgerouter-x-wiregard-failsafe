@@ -1,6 +1,10 @@
 #!/bin/bash
 # Quick diagnostic script to check WireGuard failsafe state
-# Run on EdgeRouter: sudo bash CHECK-CURRENT-STATE.sh
+# Run on EdgeRouter: sudo bash check-current-state.sh
+
+# Load config
+CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
 
 echo "=========================================="
 echo "WireGuard Failsafe State Check"
@@ -21,15 +25,14 @@ echo
 
 echo "3. WireGuard Connectivity Test:"
 echo "-------------------------------"
-WG_PEER_IP="${WG_PEER_IP:-YOUR_WG_PEER_IP}"  # Set WG_PEER_IP env var or update this
-if [ "$WG_PEER_IP" != "YOUR_WG_PEER_IP" ]; then
+if [ -n "${WG_PEER_IP:-}" ]; then
     if ping -c 2 -W 2 "$WG_PEER_IP" >/dev/null 2>&1; then
         echo "✅ Can ping WireGuard peer ($WG_PEER_IP)"
     else
         echo "❌ Cannot ping WireGuard peer ($WG_PEER_IP)"
     fi
 else
-    echo "⚠️  Set WG_PEER_IP environment variable to test connectivity"
+    echo "⚠️  WG_PEER_IP not set in config"
 fi
 echo
 
@@ -63,7 +66,7 @@ echo "------------------------"
 # Get gateway IPs from routing tables
 PRIMARY_GW=$(ip route show table 201 | grep default | awk '{print $3}' | head -1)
 BACKUP_GW=$(ip route show table 202 | grep default | awk '{print $3}' | head -1)
-VPS_ENDPOINT="${VPS_ENDPOINT:-YOUR_VPS_PUBLIC_IP}"  # Set VPS_ENDPOINT env var or update this
+VPS_ENDPOINT="${WG_ENDPOINT:-}"
 
 if [ -n "$PRIMARY_GW" ]; then
     echo -n "Primary ($PRIMARY_GW): "
@@ -79,11 +82,11 @@ else
     echo "Backup gateway: Not found in routing table"
 fi
 
-if [ "$VPS_ENDPOINT" != "YOUR_VPS_PUBLIC_IP" ]; then
+if [ -n "$VPS_ENDPOINT" ]; then
     echo -n "VPS Endpoint ($VPS_ENDPOINT): "
     ping -c 1 -W 2 "$VPS_ENDPOINT" >/dev/null 2>&1 && echo "✅ Reachable" || echo "❌ Not reachable"
 else
-    echo "VPS Endpoint: Set VPS_ENDPOINT environment variable to test"
+    echo "VPS Endpoint: WG_ENDPOINT not set in config"
 fi
 echo
 
@@ -91,7 +94,7 @@ echo "10. Current Public IP:"
 echo "---------------------"
 PUBLIC_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || echo "Failed to get IP")
 echo "Public IP: $PUBLIC_IP"
-if [ "$VPS_ENDPOINT" != "YOUR_VPS_PUBLIC_IP" ] && [ "$PUBLIC_IP" = "$VPS_ENDPOINT" ]; then
+if [ -n "$VPS_ENDPOINT" ] && [ "$PUBLIC_IP" = "$VPS_ENDPOINT" ]; then
     echo "✅ Routing through VPS (WireGuard)"
 elif [ -n "$PUBLIC_IP" ] && [ "$PUBLIC_IP" != "Failed to get IP" ]; then
     echo "ℹ️  Current public IP: $PUBLIC_IP"
@@ -102,10 +105,10 @@ echo
 
 echo "11. Route to VPS Endpoint:"
 echo "-------------------------"
-if [ "$VPS_ENDPOINT" != "YOUR_VPS_PUBLIC_IP" ]; then
+if [ -n "$VPS_ENDPOINT" ]; then
     ip route get "$VPS_ENDPOINT" 2>/dev/null || echo "No route to VPS endpoint"
 else
-    echo "Set VPS_ENDPOINT environment variable to check route"
+    echo "WG_ENDPOINT not set in config"
 fi
 echo
 

@@ -2,21 +2,20 @@
 # Comprehensive WireGuard State Diagnostics
 # Run this on the router to understand why WireGuard failsafe isn't working
 
+# Load config
+CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+# Defaults for optional values
+: "${WG_IFACE:=wg0}"
+: "${PRIMARY_DEV:=eth0}"
+: "${BACKUP_DEV:=eth1}"
+: "${METRIC_WG:=40}"
+
 echo "=========================================="
 echo "WIREGUARD FAILSAFE DIAGNOSTICS"
 echo "=========================================="
 echo ""
-
-# Configuration (should match wireguard-failsafe.sh)
-# Update these variables to match your network configuration
-WG_IFACE="wg0"
-WG_PEER_IP="${WG_PEER_IP:-10.11.0.1}"              # VPS WireGuard tunnel IP
-WG_ENDPOINT="${WG_ENDPOINT:-YOUR_VPS_PUBLIC_IP}"  # Replace with your VPS public IP
-PRIMARY_DEV="eth0"
-PRIMARY_GW="${PRIMARY_GW:-YOUR_PRIMARY_GW}"        # Replace with your primary WAN gateway
-BACKUP_DEV="eth1"
-BACKUP_GW="${BACKUP_GW:-YOUR_BACKUP_GW}"          # Replace with your backup WAN gateway
-METRIC_WG=40
 
 echo "1. WIREGUARD INTERFACE STATUS"
 echo "----------------------------"

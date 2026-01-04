@@ -1,6 +1,10 @@
 #!/bin/bash
 # Check eth0 status and why traffic isn't using it
 
+# Load config
+CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
 echo "=========================================="
 echo "eth0 Status Check"
 echo "=========================================="
@@ -35,12 +39,10 @@ echo ""
 
 echo "5. Can we ping eth0 gateway?"
 echo "---------------------------"
-# Update PRIMARY_GW to match your network, or set as environment variable
-PRIMARY_GW="${PRIMARY_GW:-YOUR_PRIMARY_GW}"
-if [ "$PRIMARY_GW" != "YOUR_PRIMARY_GW" ]; then
+if [ -n "${PRIMARY_GW:-}" ]; then
     ping -c 2 -W 2 "$PRIMARY_GW" 2>&1 | head -5
 else
-    echo "  (Set PRIMARY_GW environment variable or update script with your gateway IP)"
+    echo "  PRIMARY_GW not set in config"
 fi
 echo ""
 

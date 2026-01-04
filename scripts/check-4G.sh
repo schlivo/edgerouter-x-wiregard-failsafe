@@ -20,17 +20,21 @@
 
 set -u
 
-# ================= CONFIGURATION =================
+# ================= CONFIG LOADING =================
+CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
 
-# ntfy.sh topic for notifications
-# Create a unique topic at https://ntfy.sh/
-NTFY_TOPIC="your-4g-alerts"
+# ================= CONFIGURATION =================
+# Uses BACKUP_DEV and ALERT_URL from config, with fallbacks
+
+# ntfy.sh topic for notifications (from config or default)
+NTFY_TOPIC="${ALERT_URL:-https://ntfy.sh/your-4g-alerts}"
 
 # Target to ping (use a reliable external IP)
 PING_TARGET="8.8.8.8"
 
 # Interface to check (your 4G/backup WAN)
-INTERFACE="eth1"
+INTERFACE="${BACKUP_DEV:-eth1}"
 
 # Number of ping attempts
 MAX_ATTEMPTS=3

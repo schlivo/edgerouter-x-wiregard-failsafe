@@ -1,6 +1,10 @@
 #!/bin/bash
 # Check current WireGuard and load-balance state
 
+# Load config
+CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
 echo "=========================================="
 echo "Current System State"
 echo "=========================================="
@@ -58,14 +62,13 @@ echo ""
 
 echo "6. WireGuard Route in Config:"
 echo "------------------------------"
-WG_PEER_IP="${WG_PEER_IP:-YOUR_WG_PEER_IP}"  # Set WG_PEER_IP env var or update this
 wg_route=$(/bin/cli-shell-api showConfig protocols static route 0.0.0.0/0 2>/dev/null)
-if [ "$WG_PEER_IP" != "YOUR_WG_PEER_IP" ] && echo "$wg_route" | grep -q "$WG_PEER_IP"; then
+if [ -n "${WG_PEER_IP:-}" ] && echo "$wg_route" | grep -q "$WG_PEER_IP"; then
     echo "✓ WireGuard default route exists in config"
     echo "$wg_route" | grep -A 5 "$WG_PEER_IP"
 else
-    if [ "$WG_PEER_IP" = "YOUR_WG_PEER_IP" ]; then
-        echo "⚠️  Set WG_PEER_IP environment variable to check route"
+    if [ -z "${WG_PEER_IP:-}" ]; then
+        echo "⚠️  WG_PEER_IP not set in config"
     else
         echo "✗ WireGuard default route not in config"
     fi

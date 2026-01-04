@@ -1,14 +1,14 @@
 #!/bin/bash
 # Check actual routes in kernel and config
 
+# Load config
+CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
 echo "=========================================="
 echo "Actual Route Status"
 echo "=========================================="
 echo ""
-
-# Configuration - update these to match your setup
-WG_PEER_IP="${WG_PEER_IP:-10.11.0.1}"           # VPS WireGuard tunnel IP
-WG_ENDPOINT="${WG_ENDPOINT:-YOUR_VPS_IP}"       # VPS public IP (update this!)
 
 echo "1. Routes in Kernel (ip route show):"
 echo "------------------------------------"
