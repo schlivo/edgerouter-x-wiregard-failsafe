@@ -17,24 +17,33 @@ A robust automatic failover solution for EdgeRouter that provides seamless inter
 
 ## How It Works
 
-```mermaid
-graph TB
-    subgraph "Normal Operation"
-        LAN[LAN Clients] --> Router[EdgeRouter]
-        Router --> eth0[Primary WAN<br/>eth0 - Fiber]
-        eth0 --> Internet[Internet]
-    end
-    
-    subgraph "Failsafe Mode"
-        LAN2[LAN Clients] --> Router2[EdgeRouter]
-        Router2 --> wg0[WireGuard Tunnel<br/>wg0]
-        wg0 --> eth1[Backup WAN<br/>eth1 - 4G]
-        eth1 --> VPS[VPS Server]
-        VPS --> Internet2[Internet]
-    end
-    
-    Router -.->|"Primary Down"| Router2
-    Router2 -.->|"Primary Restored"| Router
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            NORMAL OPERATION                                 │
+│                                                                             │
+│  ┌──────────┐      ┌─────────────┐      ┌───────────┐      ┌──────────┐    │
+│  │   LAN    │ ───▶ │ EdgeRouter  │ ───▶ │   eth0    │ ───▶ │ Internet │    │
+│  │ Clients  │      │             │      │  (Fiber)  │      │          │    │
+│  └──────────┘      └─────────────┘      └───────────┘      └──────────┘    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     │ eth0 fails
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             FAILSAFE MODE                                   │
+│                                                                             │
+│  ┌──────────┐      ┌─────────────┐      ┌───────────┐      ┌───────────┐   │
+│  │   LAN    │ ───▶ │ EdgeRouter  │ ───▶ │    wg0    │ ───▶ │   eth1    │   │
+│  │ Clients  │      │             │      │ (tunnel)  │      │   (4G)    │   │
+│  └──────────┘      └─────────────┘      └───────────┘      └─────┬─────┘   │
+│                                                                   │         │
+│                          ┌──────────┐      ┌───────────┐          │         │
+│                          │ Internet │ ◀─── │    VPS    │ ◀────────┘         │
+│                          │          │      │           │                    │
+│                          └──────────┘      └───────────┘                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 When your primary WAN (eth0) connection fails:
