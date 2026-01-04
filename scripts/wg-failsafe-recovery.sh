@@ -7,24 +7,43 @@
 
 set -euo pipefail
 
-# ================= CONFIG - ADJUST THESE =================
-
-PRIMARY_DEV="eth0"
-PRIMARY_GW="YOUR_PRIMARY_GW"  # Replace with your primary WAN gateway (e.g., 192.168.1.1)
-
-BACKUP_DEV="eth1"
-BACKUP_GW="YOUR_BACKUP_GW"  # Replace with your backup WAN gateway (e.g., 192.168.2.1)
-
-WG_IFACE="wg0"
-WG_PEER="YOUR_WG_PEER_IP"         # Replace with your VPS WireGuard tunnel IP (e.g., 10.11.0.1)
-WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"  # Replace with your VPS public IP (e.g., 203.0.113.10)
-
-# ========================================================
-
+# ================= COLORS =================
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
+
+# ================= CONFIG LOADING =================
+CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
+
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        # shellcheck source=/dev/null
+        . "$CONFIG_FILE"
+        echo -e "${GREEN}Loaded config from $CONFIG_FILE${NC}"
+    else
+        echo -e "${YELLOW}WARNING: Config file not found: $CONFIG_FILE${NC}"
+        echo -e "${YELLOW}Using fallback defaults - please create config file${NC}"
+        # Fallback defaults for recovery (must work even without config)
+        : "${WG_IFACE:=wg0}"
+        : "${WG_PEER_IP:=10.11.0.1}"
+        : "${WG_ENDPOINT:=}"
+        : "${PRIMARY_DEV:=eth0}"
+        : "${PRIMARY_GW:=}"
+        : "${BACKUP_DEV:=eth1}"
+        : "${BACKUP_GW:=}"
+    fi
+
+    # IPv6 settings (optional)
+    : "${ENABLE_IPV6:=false}"
+    : "${WG_PEER_IP6:=}"
+    : "${PRIMARY_GW6:=}"
+}
+
+# Load config immediately
+load_config
+
+# ========================================================
 
 log() {
     echo -e "${1:-}${2:-}$3${NC}"
@@ -70,11 +89,15 @@ remove_wg_routes_from_all_tables() {
     local tables=$(get_policy_tables_with_defaults)
     local count=0
     for table in main $tables; do
-        if ip route del default via "$WG_PEER" dev "$WG_IFACE" table "$table" 2>/dev/null; then
+        # IPv4
+        if ip route del default via "$WG_PEER_IP" dev "$WG_IFACE" table "$table" 2>/dev/null; then
             ((count++))
         fi
-        # Also try without specifying dev (in case route format differs)
-        ip route del default via "$WG_PEER" table "$table" 2>/dev/null || true
+        ip route del default via "$WG_PEER_IP" table "$table" 2>/dev/null || true
+        # IPv6
+        if [ "$ENABLE_IPV6" = "true" ] && [ -n "$WG_PEER_IP6" ]; then
+            ip -6 route del default via "$WG_PEER_IP6" dev "$WG_IFACE" table "$table" 2>/dev/null || true
+        fi
     done
     if [ $count -gt 0 ]; then
         log "${GREEN}" "Removed WireGuard routes from $count table(s)"
@@ -86,8 +109,13 @@ restore_primary_routes_to_all_tables() {
     local tables=$(get_policy_tables_with_defaults)
     local count=0
     for table in main $tables; do
+        # IPv4
         if ip -4 route replace default via "$PRIMARY_GW" dev "$PRIMARY_DEV" metric 10 table "$table" 2>/dev/null; then
             ((count++))
+        fi
+        # IPv6
+        if [ "$ENABLE_IPV6" = "true" ] && [ -n "$PRIMARY_GW6" ]; then
+            ip -6 route replace default via "$PRIMARY_GW6" dev "$PRIMARY_DEV" metric 10 table "$table" 2>/dev/null || true
         fi
     done
     if [ $count -gt 0 ]; then
@@ -136,7 +164,7 @@ status() {
     echo
 
     echo "Quick ping tests:"
-    for t in "$PRIMARY_GW" "$BACKUP_GW" "$WG_PEER" 1.1.1.1; do
+    for t in "$PRIMARY_GW" "$BACKUP_GW" "$WG_PEER_IP" 1.1.1.1; do
         if ping -c 1 -W 1.5 "$t" >/dev/null 2>&1; then
             echo -e "  $t → ${GREEN}OK${NC}"
         else
@@ -190,7 +218,7 @@ soft_cleanup() {
     # Remove WG related routes from all tables
     remove_wg_routes_from_all_tables
     ip route del "$WG_ENDPOINT/32" 2>/dev/null || true
-    ip route del "$WG_PEER/32" 2>/dev/null || true
+    ip route del "$WG_PEER_IP/32" 2>/dev/null || true
 
     # Make sure primary is best in main table
     ip -4 route replace default via "$PRIMARY_GW" dev "$PRIMARY_DEV" metric 10 table main 2>/dev/null || true

@@ -1,46 +1,54 @@
 # WireGuard Failsafe Configuration
-# Copy this file to: /config/user-data/wireguard-failsafe.conf
-# The failsafe script will load configuration from this file if it exists,
-# otherwise it will use inline defaults (which must be edited in the script).
-#
-# Using an external config file is recommended because:
-# - Configuration survives script updates
-# - Easier to manage and backup
-# - Cleaner separation of config from code
+# All settings in this file are REQUIRED unless marked (optional)
 
-# ================= NETWORK SETTINGS =================
-
-# WireGuard interface name (usually wg0)
+# ============== WIREGUARD SETTINGS ==============
+# WireGuard interface name
 WG_IFACE="wg0"
 
-# WireGuard peer IP (the VPS tunnel IP, e.g., the server's WG address)
+# WireGuard peer IP (tunnel IP on VPS side)
 WG_PEER_IP="10.11.0.1"
 
-# VPS public IP address (the WireGuard endpoint)
-WG_ENDPOINT="203.0.113.10"
+# WireGuard endpoint (VPS public IP)
+WG_ENDPOINT="51.38.51.158"
 
-# Primary WAN interface and gateway (usually fiber/ethernet)
+# WireGuard port (optional, default: 51820)
+# Can also be read dynamically from running interface
+WG_PORT="51820"
+
+# ============== NETWORK INTERFACES ==============
+# Primary WAN interface and gateway
 PRIMARY_DEV="eth0"
 PRIMARY_GW="192.168.1.1"
 
-# Backup WAN interface and gateway (usually 4G/LTE)
+# Backup WAN interface and gateway
 BACKUP_DEV="eth1"
 BACKUP_GW="192.168.2.1"
 
-# LAN subnet (for policy-based routing rules)
+# LAN subnet for policy-based routing rules
 LAN_SUBNET="192.168.10.0/24"
 
-# ================= ROUTE METRICS =================
+# ============== ROUTE METRICS (optional) ==============
 # Lower metric = higher priority
-# WireGuard should have lowest metric when active
+METRIC_WG=40
+METRIC_PRIMARY=100
+METRIC_BACKUP=200
 
-METRIC_WG=40        # WireGuard tunnel (highest priority when failsafe active)
-METRIC_PRIMARY=100  # Primary WAN (normal operation)
-METRIC_BACKUP=200   # Backup WAN (fallback)
+# ============== IPV6 SETTINGS (optional) ==============
+# Enable IPv6 route handling
+ENABLE_IPV6="false"
 
-# ================= OPTIONAL SETTINGS =================
-# These have sensible defaults in the script, but can be overridden here
+# IPv6 WireGuard peer address (leave empty to disable)
+WG_PEER_IP6=""
 
-# LOG_FILE="/var/log/wireguard-failsafe.log"
-# LOCK_FILE="/var/run/wireguard-failsafe.lock"
-# LOCK_TIMEOUT=60
+# IPv6 primary gateway (leave empty to disable)
+PRIMARY_GW6=""
+
+# ============== ALERTING SETTINGS (optional) ==============
+# Enable push notifications on state changes
+ALERT_ENABLED="false"
+
+# Alert URL (e.g., https://ntfy.sh/your-router-alerts)
+ALERT_URL=""
+
+# Alert method: "ntfy" or "email"
+ALERT_METHOD="ntfy"
