@@ -181,9 +181,12 @@ PrivateKey = <VPS_PRIVATE_KEY>
 # Replace 'ens3' with your actual network interface name
 # Find it with: ip route | grep default | awk '{print $5}' | head -1
 # IMPORTANT: PostUp/PostDown must be one-liners (no line breaks or backslashes)
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE
+# Two MASQUERADE rules are needed:
+#   -o ens3: For failsafe traffic (EdgeRouter → VPS → internet)
+#   -o wg0:  For port forwarding (internet → VPS → EdgeRouter LAN)
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE; iptables -t nat -A POSTROUTING -o wg0 -j MASQUERADE
 
-PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ens3 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ens3 -j MASQUERADE; iptables -t nat -D POSTROUTING -o wg0 -j MASQUERADE
 
 [Peer]
 # EdgeRouter peer configuration
@@ -271,16 +274,38 @@ Add port forwarding rules (customize ports as needed):
 
 ```bash
 #!/bin/bash
+# Port forwarding rules for VPS
+# IMPORTANT: Always use -i ens3 to only forward traffic from the internet!
+
+# Get the main interface name
+IFACE=$(ip route | grep default | awk '{print $5}' | head -1)
 
 # Forward HTTP (port 80) to EdgeRouter LAN
-iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
+iptables -t nat -A PREROUTING -i $IFACE -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
 iptables -A FORWARD -p tcp -d 192.168.10.22 --dport 80 -j ACCEPT
 
 # Forward HTTPS (port 443) to EdgeRouter LAN
-iptables -t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to-destination 192.168.10.22:443
+iptables -t nat -A PREROUTING -i $IFACE -p tcp --dport 443 -j DNAT --to-destination 192.168.10.22:443
 iptables -A FORWARD -p tcp -d 192.168.10.22 --dport 443 -j ACCEPT
 
 # Add more port forwarding rules as needed
+```
+
+**⚠️ CRITICAL: Interface Restriction Required**
+
+Always use `-i ens3` (or your interface name) in PREROUTING DNAT rules. Without this:
+- Traffic from the WireGuard tunnel destined for the internet will be incorrectly redirected to your internal servers
+- Failsafe internet access will break (ping works, but HTTP/HTTPS fails)
+- Symptoms: curl times out, tcpdump shows traffic being sent to wrong destination
+
+**Wrong** (catches all traffic including from wg0):
+```bash
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
+```
+
+**Correct** (only catches external traffic):
+```bash
+iptables -t nat -A PREROUTING -i ens3 -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
 ```
 
 Make it executable:
@@ -450,6 +475,32 @@ sudo wg-quick strip wg0
 2. Check if packets are being forwarded:
    ```bash
    sudo tcpdump -i wg0
+   ```
+
+### Failsafe works for ping but not HTTP/curl
+
+This usually means DNAT rules are missing interface restrictions:
+
+1. Check if PREROUTING rules have `-i ens3`:
+   ```bash
+   sudo iptables -t nat -L PREROUTING -n -v | head -10
+   ```
+
+2. Look for rules with `in: *` (any interface) - these are wrong:
+   ```
+   DNAT  tcp  --  *      *    0.0.0.0/0  0.0.0.0/0  tcp dpt:80 to:192.168.10.22:80
+   ```
+
+3. Fix by flushing and re-adding with interface:
+   ```bash
+   sudo iptables -t nat -F PREROUTING
+   sudo iptables -t nat -A PREROUTING -i ens3 -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
+   # ... add other rules with -i ens3
+   ```
+
+4. Save rules to persist after reboot:
+   ```bash
+   sudo netfilter-persistent save
    ```
 
 ---
