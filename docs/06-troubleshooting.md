@@ -245,45 +245,49 @@ show firewall name WG_IN
 ### Issue: WireGuard Uses Wrong Interface for Endpoint
 
 **Symptoms:**
-- WireGuard is active but using eth0 (primary WAN) instead of eth1 (backup WAN) to reach VPS
+- WireGuard tunnel is using eth0 (fiber) instead of eth1 (4G backup) to reach VPS
 - `ip route get <VPS_IP>` shows route via eth0 instead of eth1
+- `sudo tcpdump -i eth0 port 51820` shows WireGuard traffic on eth0
+- When eth0 fails, the tunnel breaks too (defeating the purpose of failsafe)
 
-**Cause**: The failsafe script should add the endpoint route via eth1, but it may not be working correctly.
+**Cause**: Missing static route to force VPS endpoint traffic through eth1 (backup WAN).
 
 **Diagnosis:**
 ```bash
-# Check endpoint route
-ip route get 203.0.113.10  # Replace with your VPS IP
+# Check which interface WireGuard uses
+ip route get 51.38.51.158  # Replace with your VPS IP
 
-# Check if route exists
-ip route show | grep 203.0.113.10
-
-# Check failsafe script logs
-tail -50 /var/log/wireguard-failsafe.log | grep -i endpoint
+# Confirm with tcpdump (should see packets on eth1, not eth0)
+sudo tcpdump -i eth1 port 51820 -c 5
 ```
 
 **Solution:**
 
-The script should automatically add the route. If it's not working:
+Add a permanent static route to force VPS traffic through eth1:
 
-1. **Re-run the failsafe script:**
-   ```bash
-   sudo /config/scripts/wireguard-failsafe.sh
-   ```
+```bash
+configure
 
-2. **Verify the route was added:**
-   ```bash
-   ip route get 203.0.113.10  # Replace with your VPS IP
-   # Should show: via 192.168.2.1 dev eth1 (your backup gateway)
-   ```
+# Replace with your VPS IP and eth1 gateway
+set protocols static route 51.38.51.158/32 next-hop 192.168.2.1
 
-3. **If still not working, check script configuration:**
-   ```bash
-   # Verify script variables are correct
-   head -15 /config/scripts/wireguard-failsafe.sh | grep -E "BACKUP_GW|BACKUP_DEV|WG_ENDPOINT"
-   ```
+commit
+save
+exit
+```
 
-The script adds the route with metric 190 (lower = higher priority) to ensure it takes precedence over default routes.
+**Verify the fix:**
+```bash
+# Check route now uses eth1
+ip route get 51.38.51.158
+# Should show: via 192.168.2.1 dev eth1
+
+# Confirm WireGuard traffic on eth1
+sudo tcpdump -i eth1 port 51820 -c 5
+# Should see keepalive packets
+```
+
+**Note**: This is a critical step covered in [EdgeRouter Setup Guide Step 3.4](03-edgerouter-setup.md#step-34-force-wireguard-traffic-through-backup-wan-critical). The tunnel must always use eth1 so it's ready for instant failover.
 
 ### Issue: "myip works but sites don't" (Policy Tables)
 

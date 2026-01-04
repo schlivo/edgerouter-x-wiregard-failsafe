@@ -260,36 +260,9 @@ sudo ufw reload
 
 ## Step 8: Configure Port Forwarding (Optional)
 
-If you want to forward ports from the VPS to your EdgeRouter LAN through the tunnel, you can add iptables rules. This is optional and only needed if you want to expose services from your LAN to the internet via the VPS.
+If you want to forward ports from the VPS to your EdgeRouter LAN through the tunnel, add iptables DNAT rules. This is optional and only needed if you want to expose services from your LAN to the internet via the VPS.
 
 **What this does**: Allows external traffic to reach services on your EdgeRouter LAN through the VPS.
-
-Create a port forwarding script:
-
-```bash
-sudo nano /etc/wireguard/port-forward.sh
-```
-
-Add port forwarding rules (customize ports as needed):
-
-```bash
-#!/bin/bash
-# Port forwarding rules for VPS
-# IMPORTANT: Always use -i ens3 to only forward traffic from the internet!
-
-# Get the main interface name
-IFACE=$(ip route | grep default | awk '{print $5}' | head -1)
-
-# Forward HTTP (port 80) to EdgeRouter LAN
-iptables -t nat -A PREROUTING -i $IFACE -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
-iptables -A FORWARD -p tcp -d 192.168.10.22 --dport 80 -j ACCEPT
-
-# Forward HTTPS (port 443) to EdgeRouter LAN
-iptables -t nat -A PREROUTING -i $IFACE -p tcp --dport 443 -j DNAT --to-destination 192.168.10.22:443
-iptables -A FORWARD -p tcp -d 192.168.10.22 --dport 443 -j ACCEPT
-
-# Add more port forwarding rules as needed
-```
 
 **⚠️ CRITICAL: Interface Restriction Required**
 
@@ -308,27 +281,42 @@ iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168
 iptables -t nat -A PREROUTING -i ens3 -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
 ```
 
-Make it executable:
+**Add port forwarding rules** (customize IPs and ports for your setup):
 
 ```bash
-sudo chmod +x /etc/wireguard/port-forward.sh
+# Forward HTTP (port 80) to web server on LAN
+sudo iptables -t nat -A PREROUTING -i ens3 -p tcp --dport 80 -j DNAT --to-destination 192.168.10.22:80
+
+# Forward HTTPS (port 443) to web server on LAN
+sudo iptables -t nat -A PREROUTING -i ens3 -p tcp --dport 443 -j DNAT --to-destination 192.168.10.22:443
+
+# Forward SSH (port 2222) to internal server
+sudo iptables -t nat -A PREROUTING -i ens3 -p tcp --dport 2222 -j DNAT --to-destination 192.168.10.20:22
+
+# Add more ports as needed...
 ```
 
-**Update your PostUp** in `/etc/wireguard/wg0.conf` to include the port forwarding script:
+**Save rules to persist across reboots**:
 
-Your PostUp should already have the wg0 and interface rules from Step 6. Add the port-forward script at the end:
-
-**Before (from Step 6):**
-```ini
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE
+```bash
+sudo mkdir -p /etc/iptables
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
 ```
 
-**After (add the port-forward script):**
-```ini
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE; /etc/wireguard/port-forward.sh
+**Load rules at boot** - choose one method:
+
+**Option A**: Add to `/etc/rc.local` (before `exit 0`):
+```bash
+iptables-restore < /etc/iptables/rules.v4
 ```
 
-**Important**: PostUp must be a one-liner (no line breaks or backslashes). Separate commands with semicolons.
+**Option B**: Install iptables-persistent:
+```bash
+sudo apt install iptables-persistent -y
+# Rules auto-load from /etc/iptables/rules.v4 on boot
+```
+
+**Note**: PREROUTING rules are saved in `/etc/iptables/rules.v4` and persist independently. The PostUp/PostDown in wg0.conf only handles FORWARD and POSTROUTING rules tied to the WireGuard interface lifecycle.
 
 ## Step 9: Enable and Start WireGuard
 

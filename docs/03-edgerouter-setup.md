@@ -148,6 +148,39 @@ exit
 - `<VPS_PUBLIC_IP>`: VPS public IP address from Step 2
 - `<PSK>`: Preshared key from Step 2 (optional)
 
+## Step 3.4: Force WireGuard Traffic Through Backup WAN (Critical)
+
+**Why this is critical**: The WireGuard tunnel must always use eth1 (4G backup) so it's ready for instant failover when eth0 (fiber) fails. Without this static route, the tunnel uses the default route (eth0), and when eth0 fails, the tunnel breaks too.
+
+```bash
+configure
+
+# Force VPS endpoint traffic through eth1 (backup WAN)
+# Replace <VPS_PUBLIC_IP> with your VPS IP (e.g., 51.38.51.158)
+# Replace <ETH1_GATEWAY> with your eth1 gateway (e.g., 192.168.2.1)
+set protocols static route <VPS_PUBLIC_IP>/32 next-hop <ETH1_GATEWAY>
+
+commit
+save
+exit
+```
+
+**Verify the route:**
+
+```bash
+ip route get <VPS_PUBLIC_IP>
+# Should show: via <ETH1_GATEWAY> dev eth1
+```
+
+**Verify tunnel uses eth1:**
+
+```bash
+sudo tcpdump -i eth1 port 51820 -c 5
+# Should see WireGuard keepalive packets on eth1
+```
+
+**Note**: This uses a small amount of 4G data (~10MB/month) for keepalives, but ensures instant failover when fiber fails.
+
 ## Step 3.5: Configure Firewall Rules for WireGuard
 
 **Important**: WireGuard needs proper firewall rules to allow traffic from the tunnel network.
@@ -424,6 +457,8 @@ Before proceeding to script deployment, verify:
 - [ ] WireGuard interface is disabled (for failsafe operation)
 - [ ] VPS peer is configured with correct public key
 - [ ] VPS endpoint is set to correct IP and port
+- [ ] Static route forces VPS traffic through eth1 (Step 3.4)
+- [ ] WireGuard keepalives visible on eth1 (`tcpdump -i eth1 port 51820`)
 - [ ] Load-balance group G is configured
 - [ ] Transition script path is set: `/config/scripts/main-wan-down`
 - [ ] eth0 is set as primary interface
