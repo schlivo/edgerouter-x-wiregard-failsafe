@@ -155,27 +155,57 @@ sudo chown root:vyattacfg /config/scripts/main-wan-down
 
 ## Step 6: Configure Script Variables
 
-**IMPORTANT**: You must update the script variables to match your network configuration.
+**IMPORTANT**: You must configure the failsafe script to match your network.
+
+### Option A: External Config File (Recommended)
+
+Using an external config file keeps configuration separate from code, making updates easier.
 
 **On EdgeRouter:**
+
+```bash
+# Create user-data directory if it doesn't exist
+sudo mkdir -p /config/user-data
+
+# Create config file
+sudo nano /config/user-data/wireguard-failsafe.conf
+```
+
+Add your configuration (update values for your network):
+
+```bash
+# WireGuard Failsafe Configuration
+WG_IFACE="wg0"
+WG_PEER_IP="10.11.0.1"           # Your VPS WireGuard tunnel IP
+WG_ENDPOINT="203.0.113.10"       # Your VPS public IP
+PRIMARY_DEV="eth0"
+PRIMARY_GW="192.168.1.1"         # Your primary WAN gateway
+BACKUP_DEV="eth1"
+BACKUP_GW="192.168.2.1"          # Your 4G/backup gateway
+LAN_SUBNET="192.168.10.0/24"     # Your LAN subnet
+
+METRIC_WG=40
+METRIC_PRIMARY=100
+METRIC_BACKUP=200
+```
+
+Set permissions:
+
+```bash
+sudo chmod 600 /config/user-data/wireguard-failsafe.conf
+```
+
+**Note**: An example file is available at `examples/wireguard-failsafe.conf.example`.
+
+### Option B: Inline Configuration
+
+If you prefer to keep configuration in the script itself, edit the script directly:
 
 ```bash
 sudo nano /config/scripts/wireguard-failsafe.sh
 ```
 
-**Key variables to update** (near the top of the file):
-
-```bash
-WG_IFACE="wg0"
-WG_PEER_IP="YOUR_WG_PEER_IP"              # Replace with your VPS WireGuard tunnel IP (e.g., 10.11.0.1)
-WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"          # Replace with your VPS public IP (e.g., 203.0.113.10)
-PRIMARY_DEV="eth0"
-PRIMARY_GW="YOUR_PRIMARY_GW"              # Replace with your primary WAN gateway (e.g., 192.168.1.1)
-BACKUP_DEV="eth1"
-BACKUP_GW="YOUR_BACKUP_GW"                # Replace with your backup WAN gateway (e.g., 192.168.2.1)
-```
-
-**Update these values** to match your network configuration. The script will not work correctly if these are not set properly.
+Update the default values in the CONFIG section.
 
 **Important Notes:**
 - **MTU**: The script doesn't change MTU - it should be set to **1280** in the EdgeRouter config (see Step 3 in EdgeRouter Setup)
@@ -255,6 +285,48 @@ grep wireguard-init /var/log/messages | tail -10
 show load-balance group G | grep transition-script
 
 # Should show: transition-script /config/scripts/main-wan-down
+```
+
+## Step 11: Optional - Setup Notifications
+
+You can receive push notifications when failover occurs or when your 4G link goes down.
+
+### Enable Notifications in main-wan-down
+
+Edit `/config/scripts/main-wan-down` and set:
+
+```bash
+NOTIFY_ENABLED="true"
+NTFY_TOPIC="your-unique-topic"  # Create a unique topic at https://ntfy.sh/
+```
+
+Subscribe to your topic using the [ntfy app](https://ntfy.sh/) on your phone.
+
+### Deploy 4G Monitoring Script (Optional)
+
+The `check-4G.sh` script monitors your backup WAN and alerts you when it's down:
+
+```bash
+# Copy script
+scp -P 222 scripts/check-4G.sh user@your-edgerouter-ip:/tmp/
+
+# SSH to EdgeRouter
+ssh -p 222 user@your-edgerouter-ip
+
+# Deploy and configure
+sudo cp /tmp/check-4G.sh /config/scripts/check-4G.sh
+sudo chmod +x /config/scripts/check-4G.sh
+
+# Edit to set your ntfy topic
+sudo nano /config/scripts/check-4G.sh
+# Update NTFY_TOPIC="your-4g-alerts"
+
+# Schedule to run every 5 minutes
+configure
+set system task-scheduler task check-4g executable path /config/scripts/check-4G.sh
+set system task-scheduler task check-4g interval 5m
+commit
+save
 ```
 
 ## One-Line Deployment (All Scripts)

@@ -253,10 +253,10 @@ show firewall name WG_IN
 **Diagnosis:**
 ```bash
 # Check endpoint route
-ip route get 51.38.51.158  # Replace with your VPS IP
+ip route get 203.0.113.10  # Replace with your VPS IP
 
 # Check if route exists
-ip route show | grep 51.38.51.158
+ip route show | grep 203.0.113.10
 
 # Check failsafe script logs
 tail -50 /var/log/wireguard-failsafe.log | grep -i endpoint
@@ -273,8 +273,8 @@ The script should automatically add the route. If it's not working:
 
 2. **Verify the route was added:**
    ```bash
-   ip route get 51.38.51.158
-   # Should show: via 192.168.2.1 dev eth1
+   ip route get 203.0.113.10  # Replace with your VPS IP
+   # Should show: via 192.168.2.1 dev eth1 (your backup gateway)
    ```
 
 3. **If still not working, check script configuration:**

@@ -8,8 +8,12 @@ A robust automatic failover solution for EdgeRouter that provides seamless inter
 - **Zero Configuration After Setup**: Fully automatic operation once deployed
 - **Policy-Based Routing Support**: Works correctly with EdgeOS load-balance and PBR
 - **Fast Recovery**: Automatically restores primary connection when it comes back online
+- **Push Notifications**: Optional ntfy.sh integration for failover and 4G status alerts
+- **External Config File**: Separate configuration from code for easier updates
+- **4G Link Monitoring**: Optional script to monitor backup WAN health
 - **Comprehensive Logging**: Detailed logs for troubleshooting and monitoring
 - **Recovery Tools**: Built-in recovery scripts for emergency situations
+- **BusyBox Compatible**: Works with EdgeOS's limited shell environment
 
 ## How It Works
 
@@ -58,6 +62,7 @@ When your primary WAN (eth0) connection fails:
 - **[06 - Troubleshooting](docs/06-troubleshooting.md)**: Common issues and solutions
 - **[07 - Architecture](docs/07-architecture.md)**: Technical architecture and workflows
 - **[08 - Advanced](docs/08-advanced.md)**: Advanced configuration and customization
+- **[09 - Backup & Restore](docs/09-backup-restore.md)**: Backup, restore, and disaster recovery
 
 ## Prerequisites Checklist
 
@@ -91,15 +96,43 @@ For detailed architecture and workflow documentation, see [Architecture Guide](d
 - **`wg-failsafe-recovery.sh`**: Emergency recovery tool for troubleshooting
 - **`init-wg-handshake.sh`**: Boot-time script to establish WireGuard handshake
 
-**Utility Scripts** (optional, in `scripts/utils/`):
+**Optional Scripts**:
+- **`check-4G.sh`**: Monitors 4G/backup WAN connectivity and sends alerts via ntfy.sh
+
+**Utility Scripts** (in `scripts/utils/`):
 - Diagnostic tools for troubleshooting
 - Testing scripts for verification
 - See [scripts/utils/README.md](scripts/utils/README.md) for details
 
+### Deployment Tools
+
+**Local machine tools** (in `tools/`):
+- **`deploy.sh`**: Deploy scripts from your computer to the EdgeRouter
+- **`backup.sh`**: Backup scripts and configs from EdgeRouter to your computer
+
+```bash
+# Deploy scripts to router
+./tools/deploy.sh 192.168.1.1 admin 22
+
+# Backup from router
+./tools/backup.sh 192.168.1.1 admin 22
+```
+
 ### Configuration
+
+**Option A: External Config File (Recommended)**
+- Place config at `/config/user-data/wireguard-failsafe.conf`
+- See `examples/wireguard-failsafe.conf.example` for template
+- Configuration survives script updates
+
+**Option B: Inline Configuration**
+- Edit variables directly in `wireguard-failsafe.sh`
+
+### Infrastructure
 
 - **EdgeRouter**: WireGuard interface, load-balance group, policy-based routing
 - **VPS**: WireGuard server configuration with NAT masquerade
+- **Notifications** (optional): ntfy.sh for push alerts
 
 ## Testing
 

@@ -1,0 +1,46 @@
+# WireGuard Failsafe Configuration
+# Copy this file to: /config/user-data/wireguard-failsafe.conf
+# The failsafe script will load configuration from this file if it exists,
+# otherwise it will use inline defaults (which must be edited in the script).
+#
+# Using an external config file is recommended because:
+# - Configuration survives script updates
+# - Easier to manage and backup
+# - Cleaner separation of config from code
+
+# ================= NETWORK SETTINGS =================
+
+# WireGuard interface name (usually wg0)
+WG_IFACE="wg0"
+
+# WireGuard peer IP (the VPS tunnel IP, e.g., the server's WG address)
+WG_PEER_IP="10.11.0.1"
+
+# VPS public IP address (the WireGuard endpoint)
+WG_ENDPOINT="203.0.113.10"
+
+# Primary WAN interface and gateway (usually fiber/ethernet)
+PRIMARY_DEV="eth0"
+PRIMARY_GW="192.168.1.1"
+
+# Backup WAN interface and gateway (usually 4G/LTE)
+BACKUP_DEV="eth1"
+BACKUP_GW="192.168.2.1"
+
+# LAN subnet (for policy-based routing rules)
+LAN_SUBNET="192.168.10.0/24"
+
+# ================= ROUTE METRICS =================
+# Lower metric = higher priority
+# WireGuard should have lowest metric when active
+
+METRIC_WG=40        # WireGuard tunnel (highest priority when failsafe active)
+METRIC_PRIMARY=100  # Primary WAN (normal operation)
+METRIC_BACKUP=200   # Backup WAN (fallback)
+
+# ================= OPTIONAL SETTINGS =================
+# These have sensible defaults in the script, but can be overridden here
+
+# LOG_FILE="/var/log/wireguard-failsafe.log"
+# LOCK_FILE="/var/run/wireguard-failsafe.lock"
+# LOCK_TIMEOUT=60

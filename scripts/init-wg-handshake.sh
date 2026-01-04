@@ -24,7 +24,7 @@ fi
 # Method 2: Extract from config.boot file directly (most reliable for post-config.d scripts)
 if [ -z "$PEER_PUBKEY" ]; then
     # Look for "peer <key> {" pattern in config.boot
-    # The peer public key appears as: peer fAY4GjQM/dTo4GpQMSpyPabOdCCmyUtijVYS0i9g+10= {
+    # The peer public key appears as: peer ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abc= {
     PEER_PUBKEY=$(grep -A 10 "wireguard wg0" /config/config.boot 2>/dev/null | \
         grep -E "^\s+peer\s+[A-Za-z0-9+/]{43}=" | \
         sed 's/.*peer\s*\([A-Za-z0-9+/]\{43\}=\).*/\1/' | head -1)

@@ -1,22 +1,53 @@
 #!/bin/bash
 # WireGuard Failsafe - Fast & Safe (2026 - always-up WG, kernel only)
 # Dynamic peer key, handshake age check, route verification, better diagnostics
+#
+# This script can load configuration from an external file or use inline defaults.
+# External config: /config/user-data/wireguard-failsafe.conf
+#
+# See examples/wireguard-failsafe.conf.example for config file format
 
 set -euo pipefail
 
 # ================= CONFIG =================
-# IMPORTANT: Update these variables to match your network configuration
-WG_IFACE="wg0"
-WG_PEER_IP="YOUR_WG_PEER_IP"              # Replace with your VPS WireGuard tunnel IP (e.g., 10.11.0.1)
-WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"          # Replace with your VPS public IP (e.g., 203.0.113.10)
-PRIMARY_DEV="eth0"
-PRIMARY_GW="YOUR_PRIMARY_GW"              # Replace with your primary WAN gateway (e.g., 192.168.1.1)
-BACKUP_DEV="eth1"
-BACKUP_GW="YOUR_BACKUP_GW"                # Replace with your backup WAN gateway (e.g., 192.168.2.1)
+# Try to load external config file first, fall back to inline defaults
+CONFIG_FILE="/config/user-data/wireguard-failsafe.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
+    CONFIG_SOURCE="external ($CONFIG_FILE)"
+else
+    # Inline defaults - UPDATE THESE for your network
+    WG_IFACE="wg0"
+    WG_PEER_IP="YOUR_WG_PEER_IP"              # Replace with your VPS WireGuard tunnel IP (e.g., 10.11.0.1)
+    WG_ENDPOINT="YOUR_VPS_PUBLIC_IP"          # Replace with your VPS public IP (e.g., 203.0.113.10)
+    PRIMARY_DEV="eth0"
+    PRIMARY_GW="YOUR_PRIMARY_GW"              # Replace with your primary WAN gateway (e.g., 192.168.1.1)
+    BACKUP_DEV="eth1"
+    BACKUP_GW="YOUR_BACKUP_GW"                # Replace with your backup WAN gateway (e.g., 192.168.2.1)
+    LAN_SUBNET="192.168.10.0/24"              # Your LAN subnet for PBR rules
 
-METRIC_WG=40
-METRIC_PRIMARY=100
-METRIC_BACKUP=200
+    METRIC_WG=40
+    METRIC_PRIMARY=100
+    METRIC_BACKUP=200
+    CONFIG_SOURCE="inline defaults"
+fi
+
+# Validate required config variables
+for var in WG_IFACE WG_PEER_IP WG_ENDPOINT PRIMARY_DEV PRIMARY_GW BACKUP_DEV BACKUP_GW LAN_SUBNET; do
+    if [ -z "${!var:-}" ]; then
+        echo "ERROR: Required config variable $var is not set" >&2
+        echo "Please configure $CONFIG_FILE or update inline defaults" >&2
+        exit 1
+    fi
+done
+
+# Check for placeholder values
+if [[ "$WG_PEER_IP" == "YOUR_"* ]] || [[ "$WG_ENDPOINT" == "YOUR_"* ]] || [[ "$PRIMARY_GW" == "YOUR_"* ]] || [[ "$BACKUP_GW" == "YOUR_"* ]]; then
+    echo "ERROR: Configuration contains placeholder values (YOUR_*)" >&2
+    echo "Please update $CONFIG_FILE or inline defaults with your actual network settings" >&2
+    exit 1
+fi
 
 LOG_FILE="/var/log/wireguard-failsafe.log"
 LOCK_FILE="/var/run/wireguard-failsafe.lock"
@@ -26,9 +57,9 @@ RUN_CMD="/opt/vyatta/bin/vyatta-op-cmd-wrapper"
 # ================= HELPERS =================
 log() {
     local ts=$(date '+%Y-%m-%d %H:%M:%S')
-    local msg="[wireguard-failsafe-fast $ts] $*"
+    local msg="[wireguard-failsafe $ts] $*"
     echo "$msg" | tee -a "$LOG_FILE" >&2
-    command -v logger >/dev/null 2>&1 && logger -t wireguard-failsafe-fast "$*" 2>/dev/null || true
+    command -v logger >/dev/null 2>&1 && logger -t wireguard-failsafe "$*" 2>/dev/null || true
 }
 
 lock_acquire() {
@@ -158,7 +189,6 @@ get_policy_tables_with_defaults() {
     # Tables 201, 202 are typically used by load-balancer for eth0/eth1
     # Table 10 is used for backup interface (from config.boot)
     # Table 210 might be used for LAN routing
-    # Check tables 1-250 for any that have default routes
     for table in 10 201 202 210; do
         if ip route show table "$table" 2>/dev/null | grep -q "^default"; then
             tables="$tables $table"
@@ -166,7 +196,8 @@ get_policy_tables_with_defaults() {
     done
     # Also try to discover other tables by checking ip rules for fwmark-based routing
     # EdgeOS load-balancer uses fwmarks that route to specific tables
-    local fwmark_tables=$(ip rule show 2>/dev/null | grep -oP "lookup \K[0-9]+" | sort -u)
+    # Note: Using sed instead of grep -oP for BusyBox compatibility
+    local fwmark_tables=$(ip rule show 2>/dev/null | sed -n 's/.*lookup \([0-9]*\).*/\1/p' | sort -u)
     for table in $fwmark_tables; do
         # Only consider numeric tables (not main/local/default)
         if [[ "$table" =~ ^[0-9]+$ ]] && [ "$table" -ge 1 ] && [ "$table" -le 250 ]; then
@@ -189,7 +220,7 @@ add_wg_routes_to_policy_tables() {
             continue  # Main table is handled separately
         fi
         if ip -4 route replace default via "$WG_PEER_IP" dev "$WG_IFACE" metric $METRIC_WG table "$table" 2>/dev/null; then
-            ((count++))
+            ((count++)) || true
         fi
     done
     if [ $count -gt 0 ]; then
@@ -206,7 +237,7 @@ remove_wg_routes_from_policy_tables() {
             continue  # Main table is handled separately
         fi
         if ip route del default via "$WG_PEER_IP" dev "$WG_IFACE" table "$table" 2>/dev/null; then
-            ((count++))
+            ((count++)) || true
         fi
     done
     if [ $count -gt 0 ]; then
@@ -223,7 +254,7 @@ restore_primary_routes_to_policy_tables() {
             continue  # Main table is handled separately
         fi
         if ip -4 route replace default via "$PRIMARY_GW" dev "$PRIMARY_DEV" metric $METRIC_PRIMARY table "$table" 2>/dev/null; then
-            ((count++))
+            ((count++)) || true
         fi
     done
     if [ $count -gt 0 ]; then
@@ -234,7 +265,7 @@ restore_primary_routes_to_policy_tables() {
 # ================= MAIN OPERATIONS =================
 activate_wg_failsafe() {
     log "Activating failsafe..."
-    
+
     ip route replace "$WG_ENDPOINT/32" via "$BACKUP_GW" dev "$BACKUP_DEV" metric $((METRIC_BACKUP-10)) 2>/dev/null &&
         log "Endpoint route added"
 
@@ -245,7 +276,7 @@ activate_wg_failsafe() {
 
     # Dynamic peer key + force handshake if tunnel not responsive
     if ! wg_is_really_up; then
-        log "Tunnel not responsive → forcing handshake"
+        log "Tunnel not responsive - forcing handshake"
         local peer_key=""
 
         # Try 1: From key file (if exists)
@@ -271,7 +302,7 @@ activate_wg_failsafe() {
         fi
 
         if [ -n "$peer_key" ]; then
-            log "Found peer key → forcing handshake"
+            log "Found peer key - forcing handshake"
             sudo wg set "$WG_IFACE" peer "$peer_key" \
                 endpoint "${WG_ENDPOINT}:51820" persistent-keepalive 25 2>/dev/null &&
                 log "Handshake forced" || log "Handshake force failed"
@@ -285,7 +316,7 @@ activate_wg_failsafe() {
     while [ $count -lt $max ]; do
         wg_is_really_up && { log "Tunnel UP after ${count}s"; break; }
         [ $((count % 5)) -eq 0 ] && [ $count -gt 0 ] && log "Waiting... (${count}s/$max)"
-        sleep 1; ((count++))
+        sleep 1; ((count++)) || true
     done
 
     wg_is_really_up || {
@@ -310,7 +341,7 @@ activate_wg_failsafe() {
 
     # Add & verify default route in main table
     ip -4 route replace default via "$WG_PEER_IP" dev "$WG_IFACE" metric $METRIC_WG table main &&
-        log "Default route → WireGuard (main)" || { log "ERROR: Failed to add route"; return 1; }
+        log "Default route -> WireGuard (main)" || { log "ERROR: Failed to add route"; return 1; }
 
     # Verify main table route
     sleep 0.5
@@ -326,34 +357,26 @@ activate_wg_failsafe() {
     # This ensures marked traffic (fwmark) can also reach the internet via WireGuard
     add_wg_routes_to_policy_tables
 
-    ip rule add from 192.168.10.0/24 table main priority 69 2>/dev/null &&
-        log "PBR: LAN → main table"
+    ip rule add from "$LAN_SUBNET" table main priority 69 2>/dev/null &&
+        log "PBR: LAN ($LAN_SUBNET) -> main table"
 
     sleep 1
 
     # Optional: dnsmasq check & restart only if dnsmasq is running and configured
-    # Note: Not all EdgeRouter configurations use dnsmasq - this is optional
     if command -v dnsmasq >/dev/null 2>&1 && pgrep -x dnsmasq >/dev/null; then
-        # Try to detect router IP from switch0 (LAN interface) - common EdgeRouter setup
-        # Fallback to common default if detection fails
         local router_ip=$(ip addr show switch0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1 | head -1)
         if [ -z "$router_ip" ]; then
-            # Try to get from any interface with 192.168.x.x (common LAN range)
             router_ip=$(ip addr show 2>/dev/null | grep "inet 192.168" | awk '{print $2}' | cut -d'/' -f1 | head -1)
         fi
         if [ -n "$router_ip" ]; then
             if ! nslookup -timeout=5 google.com "$router_ip" >/dev/null 2>&1; then
-                log "dnsmasq not resolving → restart"
+                log "dnsmasq not resolving - restarting"
                 /etc/init.d/dnsmasq restart >/dev/null 2>&1 || log "dnsmasq restart failed"
                 sleep 3
             else
-                log "dnsmasq OK - no restart"
+                log "dnsmasq OK - no restart needed"
             fi
-        else
-            log "dnsmasq running but router IP not detected - skipping DNS check"
         fi
-    else
-        log "dnsmasq not running - skipping DNS check (optional)"
     fi
 
     log "Failsafe ACTIVATED"
@@ -362,31 +385,30 @@ activate_wg_failsafe() {
 
 deactivate_wg_failsafe() {
     log "Deactivating failsafe..."
-    
+
     # Remove WireGuard routes from all policy tables first
     remove_wg_routes_from_policy_tables
-    
+
     # Remove WireGuard-related routes and rules from main table
     ip route del default via "$WG_PEER_IP" dev "$WG_IFACE" table main 2>/dev/null || true
     ip route del "$WG_ENDPOINT/32" 2>/dev/null || true
-    ip rule del from 192.168.10.0/24 table main priority 69 2>/dev/null || true
-    
+    ip rule del from "$LAN_SUBNET" table main priority 69 2>/dev/null || true
+
     # Clean up any stale default routes that might interfere
-    # Remove any default via eth1 (backup) from main table if it exists
     ip route del default dev "$BACKUP_DEV" table main 2>/dev/null || true
     ip route del default via "$BACKUP_GW" dev "$BACKUP_DEV" table main 2>/dev/null || true
-    
+
     # Ensure primary gateway is reachable before restoring route
     if ! can_reach_gw "$PRIMARY_GW" "$PRIMARY_DEV"; then
         log "WARNING: Primary gateway $PRIMARY_GW not reachable - cannot restore default route"
         log "Failsafe DEACTIVATED (but default route not restored - gateway unreachable)"
         return 1
     fi
-    
+
     # Restore default route in main table via primary interface
     if ip -4 route replace default via "$PRIMARY_GW" dev "$PRIMARY_DEV" metric $METRIC_PRIMARY 2>/dev/null; then
-        log "Default route → primary (main)"
-        
+        log "Default route -> primary (main)"
+
         # Verify the route was actually added
         sleep 0.5
         if ip route show table main default | grep -qE "via $PRIMARY_GW.*dev $PRIMARY_DEV"; then
@@ -400,11 +422,10 @@ deactivate_wg_failsafe() {
         log "ERROR: Failed to restore default route via $PRIMARY_GW"
         return 1
     fi
-    
+
     # Restore primary routes to all policy tables (201, 202, 10, etc.)
-    # This ensures marked traffic (fwmark) can reach the internet immediately
     restore_primary_routes_to_policy_tables
-    
+
     log "Failsafe DEACTIVATED"
     return 0
 }
@@ -412,7 +433,7 @@ deactivate_wg_failsafe() {
 # ================= MAIN =================
 main() {
     lock_acquire
-    log "Script started"
+    log "Script started (config: $CONFIG_SOURCE)"
 
     local eth0_active=0 eth1_active=0 wg_up=0 wg_route=0
 
@@ -421,15 +442,12 @@ main() {
         log "eth0 link DOWN (physical link missing)"
         eth0_active=0
     elif ! is_eth_active "$PRIMARY_DEV"; then
-        # Load-balancer says inactive - trust it
         log "eth0 link UP but load-balancer reports inactive"
         eth0_active=0
     elif ! can_reach_gw "$PRIMARY_GW" "$PRIMARY_DEV"; then
-        # Link is up, load-balancer says active, but gateway unreachable - likely cable issue
         log "eth0 link UP but gateway unreachable (likely cable unplugged)"
         eth0_active=0
     else
-        # All checks pass
         eth0_active=1
         log "eth0 active"
     fi
@@ -439,15 +457,12 @@ main() {
         log "eth1 link DOWN (physical link missing)"
         eth1_active=0
     elif ! is_eth_active "$BACKUP_DEV"; then
-        # Load-balancer says inactive - trust it
         log "eth1 link UP but load-balancer reports inactive"
         eth1_active=0
     elif ! can_reach_gw "$BACKUP_GW" "$BACKUP_DEV"; then
-        # Link is up, load-balancer says active, but gateway unreachable - likely cable issue
         log "eth1 link UP but gateway unreachable (likely cable unplugged)"
         eth1_active=0
     else
-        # All checks pass
         eth1_active=1
         log "eth1 active"
     fi
@@ -458,19 +473,15 @@ main() {
     log "Status: eth0=$eth0_active eth1=$eth1_active wg_up=$wg_up wg_route=$wg_route"
 
     # Activate WireGuard if eth0 is down (regardless of eth1 status)
-    # If eth1 is up, it will handle traffic, but WireGuard is still a failsafe
     if [ $eth0_active -eq 0 ]; then
         if [ $eth1_active -eq 0 ]; then
-            # Both down - definitely activate WireGuard
             log "Both eth0 and eth1 down - activating WireGuard failsafe"
             activate_wg_failsafe || { log "Activation failed"; lock_release; exit 1; }
         else
-            # eth0 down but eth1 up - activate WireGuard as backup failsafe
             log "eth0 down, eth1 up - activating WireGuard as backup failsafe"
             activate_wg_failsafe || { log "Activation failed"; lock_release; exit 1; }
         fi
     elif [ $eth0_active -eq 1 ] && [ $wg_route -eq 1 ]; then
-        # eth0 is back up and WireGuard is active - deactivate
         log "eth0 back up - deactivating WireGuard failsafe"
         deactivate_wg_failsafe || { log "Deactivation failed"; lock_release; exit 1; }
     else

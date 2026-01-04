@@ -31,3 +31,4 @@ scripts/*.sh
 !scripts/wireguard-failsafe.sh
 !scripts/wg-failsafe-recovery.sh
 !scripts/init-wg-handshake.sh
+!scripts/check-4G.sh
