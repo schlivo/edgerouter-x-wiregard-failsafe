@@ -27,8 +27,8 @@ CONFIG_FILE="${WG_FAILSAFE_CONFIG:-/config/user-data/wireguard-failsafe.conf}"
 # ================= CONFIGURATION =================
 # Uses BACKUP_DEV and ALERT_URL from config, with fallbacks
 
-# ntfy.sh topic for notifications (from config or default)
-NTFY_TOPIC="${ALERT_URL:-https://ntfy.sh/your-4g-alerts}"
+# ntfy.sh URL for notifications (full URL from config, or default)
+NTFY_URL="${ALERT_URL:-https://ntfy.sh/your-4g-alerts}"
 
 # Target to ping (use a reliable external IP)
 PING_TARGET="8.8.8.8"
@@ -69,7 +69,7 @@ if [ "$FAIL_COUNT" -ge "$MAX_FAILS" ]; then
             -H "Priority: high" \
             -H "Tags: rotating_light" \
             -d "$INTERFACE cannot reach internet ($PING_TARGET). Restart 4G router." \
-            "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1 || true
+            "$NTFY_URL" >/dev/null 2>&1 || true
     fi
     logger -t check-4g "ALERT: $INTERFACE cannot reach $PING_TARGET ($FAIL_COUNT/$MAX_FAILS failures)"
 else

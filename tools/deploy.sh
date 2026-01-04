@@ -68,7 +68,7 @@ check_repo() {
 test_ssh() {
     log "Testing SSH connection to $ROUTER_USER@$ROUTER_IP:$ROUTER_SSH_PORT..."
 
-    if ! ssh -p "$ROUTER_SSH_PORT" -o ConnectTimeout=5 -o BatchMode=yes "$ROUTER_USER@$ROUTER_IP" "echo 'SSH OK'" 2>/dev/null; then
+    if ! ssh -p "$ROUTER_SSH_PORT" -o ConnectTimeout=10 "$ROUTER_USER@$ROUTER_IP" "echo 'SSH OK'"; then
         error "Cannot connect to router via SSH. Check IP, port, and credentials."
     fi
 
